@@ -25,8 +25,8 @@ pinout
 52 and 52 wheel motors digital outs
 
 A0 to A3 current sensing wheel motor drivers
-A4 and A5 wheel encoders second (quadrature) line
-A6 to A15 free
+A4 to A13 free
+A14 and A15 wheel encoders second (quadrature) line
 
 */
 
@@ -107,7 +107,7 @@ MPU6050 accelgyro;
 //// wheel encoders, these occupy serial 1 due to the interrupts
 #define c_LeftEncoderInterrupt 4 //(interrupt 4 is on pin 19)
 #define c_LeftEncoderPinA 19
-#define c_LeftEncoderPinB A4
+#define c_LeftEncoderPinB A14
 #define LeftEncoderIsReversed
 volatile bool _LeftEncoderBSet;
 
@@ -115,7 +115,7 @@ volatile bool _LeftEncoderBSet;
 // Right encoder
 #define c_RightEncoderInterrupt 5   //(interrupt 5 is on pin 18)
 #define c_RightEncoderPinA 18
-#define c_RightEncoderPinB A5
+#define c_RightEncoderPinB A15
 volatile bool _RightEncoderBSet;
 
 
