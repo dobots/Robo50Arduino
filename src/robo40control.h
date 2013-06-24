@@ -1,11 +1,10 @@
 /*
 
 TODO 
-*fix pin assignments
-*esp for wheel encoders
-*fix function declarations
+
 *check on wheel encoder overflow
 *reading motor commands to interrupt?
+*fix additional motors..
 
 */
 
@@ -74,14 +73,16 @@ TODO
 //// compass
 #define MAX_HEADING_HISTORY 5
 
+//uses pin 20 and 21 for Wire library
+
 // class default I2C address is 0x68
 // specific I2C addresses may be passed as a parameter here
 // AD0 low = 0x68 (default for InvenSense evaluation board)
 // AD0 high = 0x69
 MPU6050 accelgyro;
 
-//// wheel encoders
-#define c_LeftEncoderInterrupt 4
+//// wheel encoders, these occupy serial 1 due to the interrupts
+#define c_LeftEncoderInterrupt 4 //(interrupt 4 is on pin 19)
 #define c_LeftEncoderPinA 19
 #define c_LeftEncoderPinB A4
 #define LeftEncoderIsReversed
@@ -89,7 +90,7 @@ volatile bool _LeftEncoderBSet;
 
  
 // Right encoder
-#define c_RightEncoderInterrupt 5
+#define c_RightEncoderInterrupt 5   //(interrupt 5 is on pin 18)
 #define c_RightEncoderPinA 18
 #define c_RightEncoderPinB A5
 volatile bool _RightEncoderBSet;

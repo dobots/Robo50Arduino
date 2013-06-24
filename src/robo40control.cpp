@@ -13,6 +13,7 @@ aJsonStream serial_stream(&Serial);
 //Stream *serial_stream;
 
 int HMC6352Address = 0x42;
+
 // This is calculated in the setup() function
 int slaveAddress;
 //int ledPin = 13;
@@ -53,16 +54,16 @@ int currightSpeed = 0;
 
 // --------------------------------------------------------------------
 void setup() {
-  //connect to computer, uses pin ? and ?
+  //connect to computer, uses pin 0 and 1
   Serial.begin(115200);
   
   // connection to compass, uses pins 20 and 21
   Wire.begin();
   
-  /*//connect to bluetooth, uses pin ? and ?
-  Serial1.begin(57600);
-  //  Serial1.flush();	
-  //  Serial1.setTimeout(10);*/
+  /*//connect to bluetooth, uses pin 16 and 17
+  Serial2.begin(57600);
+  //  Serial2.flush();	
+  //  Serial2.setTimeout(10);*/
   
 
   //setup compass
@@ -164,14 +165,15 @@ void handleControlCommand(aJsonObject* json) {
 void handleDisconnect(aJsonObject* json) {
 	// is sent when the phone disconnects from the robot
 	// best to turn off all motors here
+    drive(0, 0);
 }
 
 void handleMotorCommand(aJsonObject* json) {
-  Serial.println("1");
+  //Serial.println("1");
 	int id = -1, direction = -1, value = -1;
 	decodeMotorCommand(json, &id, &direction, &value);
   secdrive(value, id);
-  Serial.println("2");
+  //Serial.println("2");
 	// TODO: add here the function call to drive the brush motor
 	//  id is in case we want to control other mothers, currently a value of 1 is sent
 	//  direction, either 0 or 1, where 1 is "forward"
@@ -353,12 +355,12 @@ void drive(int leftSpeed, int rightSpeed)
         digitalWrite(M1,HIGH);  
         digitalWrite(M2,HIGH);
 
-    Serial.println("in Drive");
+    //Serial.println("in Drive");
       analogWrite(E1, 0);   //PWM Speed Control
       analogWrite(E2, 0);   //PWM Speed Control
       analogWrite(E3, 0);   //PWM Speed Control
       analogWrite(E4, 0);   //PWM Speed Control
-    Serial.println("speed set to zero");
+    //Serial.println("speed set to zero");
 
 	//setDirection(&left, &right);
     if (leftSpeed > 0 && rightSpeed > 0)
@@ -421,10 +423,10 @@ void drive(int leftSpeed, int rightSpeed)
       delay(10);
     }
 
-  Serial.println(left);
-  Serial.println(right);
-  Serial.println(ReportC1);
-  Serial.println(ReportC2);
+  //Serial.println(left);
+  //Serial.println(right);
+  //Serial.println(ReportC1);
+  //Serial.println(ReportC2);
 
 }
 
