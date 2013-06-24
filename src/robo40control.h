@@ -8,6 +8,29 @@ TODO
 
 */
 
+/*
+pinout
+0 and 1 are for serial to pc
+2 is for accel interrupt
+3 is free (PWM)
+4 to 7, additional motors PWM
+8 to 11, wheels motors PWM
+12 and 13 additional motor PWM
+14 and 15 free (serial channel)
+16 and 17 are reserved for bluetooth (serial channel)
+18 and 19 encoder interrupts
+20 and 21 for I2C Wire library
+22 to 47 free
+48 to 51 addiional motors digital outs
+52 and 52 wheel motors digital outs
+
+A0 to A3 current sensing wheel motor drivers
+A4 and A5 wheel encoders second (quadrature) line
+A6 to A15 free
+
+*/
+
+
 #include "aJSON.h"
 #include "MPU6050.h"
 
@@ -31,27 +54,29 @@ TODO
 #define GYROSCOPE_RANGE 250.0   // +- 250 deg/s
 
 // Pin assignments
+
 #define E1  8    // motor 1
 #define E2  9
 #define M1  52
 
 #define S1  A0
-#define S2  A1
+#define S2  A1  //not used
   
 #define E3  10   // motor 2
 #define E4  11
 #define M2  53
+
+#define S3  A2
+#define S4  A3  //not used
+
  
-#define E7  4   // motor 2
+#define E7  4   // motor ?
 #define E8  5
 #define M4  49
  
-#define E9  2   // motor 2
-#define E10 3
+#define E9  12   // motor ?
+#define E10 13
 #define M5  48
-
-#define S3  A2
-#define S4  A3
 
 #define E5  6   // hulpmotor 1
 #define M3  51
@@ -72,8 +97,6 @@ TODO
 
 //// compass
 #define MAX_HEADING_HISTORY 5
-
-//uses pin 20 and 21 for Wire library
 
 // class default I2C address is 0x68
 // specific I2C addresses may be passed as a parameter here

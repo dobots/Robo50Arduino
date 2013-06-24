@@ -16,8 +16,6 @@ int HMC6352Address = 0x42;
 
 // This is calculated in the setup() function
 int slaveAddress;
-//int ledPin = 13;
-//boolean ledState = false;
 byte headingData[2];
 int headingValue;
 int headingHistory[MAX_HEADING_HISTORY];
@@ -26,8 +24,6 @@ int headingMax = -1;
 int headingMin = 10000;
 
 bool ag_connected = false;
-// int16_t ax, ay, az;
-// int16_t gx, gy, gz;
 int agValue[6];
 int agHistory[6][MAX_AG_HISTORY];
 long agAvg[6];
@@ -385,8 +381,8 @@ void drive(int leftSpeed, int rightSpeed)
     }
 
     while ((incidentcount < MAXINCIDENTCOUNT) && (curleftSpeed != abs(capSpeed(leftSpeed))) && (currightSpeed != abs(capSpeed(rightSpeed)))) {
-      CSense1 = analogRead(A0);
-      CSense2 = analogRead(A2);
+      CSense1 = analogRead(S1);
+      CSense2 = analogRead(S3);
       ReportC1 = (CSense1 > ReportC1 ? CSense1 : ReportC1); // track maximum current sensed
       ReportC2 = (CSense2 > ReportC2 ? CSense2 : ReportC2);
       //Serial.print("CSense1 :");Serial.println(CSense1);
