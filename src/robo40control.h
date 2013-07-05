@@ -55,16 +55,19 @@ A14 and A15 wheel encoders second (quadrature) line
 
 // Pin assignments
 
-#define E1  8    // motor 1
-#define E2  9
-#define M1  52
+// left motor
+#define E1  6    // motor 1
+#define D1  22
+#define D2  24
+
+// right motor
+#define E2  7
+#define D3  26
+#define D4	28
+
 
 #define S1  A0
 #define S2  A1  //not used
-  
-#define E3  10   // motor 2
-#define E4  11
-#define M2  53
 
 #define S3  A2
 #define S4  A3  //not used
