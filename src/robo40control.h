@@ -53,23 +53,67 @@ A14 and A15 wheel encoders second (quadrature) line
 #define ACCELEROMETER_RANGE 2.0 // +- 2g
 #define GYROSCOPE_RANGE 250.0   // +- 250 deg/s
 
+
+#define ELEVATOR 0
+#define PUMP 1
+#define VACUUM 2
+#define BRUSH 3
+
 // Pin assignments
 
-// left motor
-#define E1  6    // motor 1
-#define D1  22
-#define D2  24
+#define PWM_A 4
+#define PWM_B 5
+#define PWM_C 6
+#define PWM_D 7
+int PWM_MOTORS[4] = {PWM_A, PWM_B, PWM_C, PWM_D};
 
-// right motor
-#define E2  7
-#define D3  26
-#define D4	28
+#define CURRENT_SENSE_A A12
+#define CURRENT_SENSE_B A13
+#define CURRENT_SENSE_C A14
+#define CURRENT_SENSE_D A15
+int CURRENT_SENSE_MOTORS[4] = {CURRENT_SENSE_A, CURRENT_SENSE_B, CURRENT_SENSE_C, CURRENT_SENSE_D};
+
+#define DIRECTION_A 45  // elevator
+						// + direction -> UP
+						// - direction -> DOWN
+#define DIRECTION_B 44	// pump
+						// + direction
+						// - direction
+#define DIRECTION_C 47	// vacuum
+						// + direction -> blowing
+						// - direction -> sucking -> OK
+#define DIRECTION_D 46 	// brush 
+						// - direction -> OK
+						// + direction -> wrong
+int DIRECTION_MOTORS[4] = {DIRECTION_A, DIRECTION_B, DIRECTION_C, DIRECTION_D};
+
+#define CURRENT_LIMIT_A 1000
+#define CURRENT_LIMIT_B 1000
+#define CURRENT_LIMIT_C 1000
+#define CURRENT_LIMIT_D 1000
+int CURRENT_LIMIT_MOTORS[4] = {CURRENT_LIMIT_A, CURRENT_LIMIT_B, CURRENT_LIMIT_C, CURRENT_LIMIT_D};
+
+#define PWM_LEFT 8
+#define PWM_RIGHT 9
+#define DIRECTION_LEFT_FW 27
+#define DIRECTION_LEFT_BW 29
+#define DIRECTION_RIGHT_FW 25
+#define DIRECTION_RIGHT_BW 23
+
+#define CURRENT_SENSE_LEFT A0
+#define CURRENT_SENSE_RIGHT A2
+
+#define CURRENT_LIMIT_DRIVE 1000
+
+#define FLASH_LIGHT 10
+
+#define OUTLIER_CHECKS 10
+#define OUTLIER_THRESHOLD 5
 
 
-#define S1  A0
+
 #define S2  A1  //not used
 
-#define S3  A2
 #define S4  A3  //not used
 
  
@@ -101,31 +145,33 @@ A14 and A15 wheel encoders second (quadrature) line
 //// compass
 #define MAX_HEADING_HISTORY 5
 
-// class default I2C address is 0x68
-// specific I2C addresses may be passed as a parameter here
-// AD0 low = 0x68 (default for InvenSense evaluation board)
-// AD0 high = 0x69
-MPU6050 accelgyro;
-
 //// wheel encoders, these occupy serial 1 due to the interrupts
 #define c_LeftEncoderInterrupt 4 //(interrupt 4 is on pin 19)
-#define c_LeftEncoderPinA 19
-#define c_LeftEncoderPinB A14
+#define c_LeftEncoderPinA 4
+#define c_LeftEncoderPinB A6
 #define LeftEncoderIsReversed
 volatile bool _LeftEncoderBSet;
 
  
 // Right encoder
 #define c_RightEncoderInterrupt 5   //(interrupt 5 is on pin 18)
-#define c_RightEncoderPinA 18
-#define c_RightEncoderPinB A15
+#define c_RightEncoderPinA 5
+#define c_RightEncoderPinB A7
 volatile bool _RightEncoderBSet;
+// class default I2C address is 0x68
+// specific I2C addresses may be passed as a parameter here
+// AD0 low = 0x68 (default for InvenSense evaluation board)
+// AD0 high = 0x69
+MPU6050 accelgyro;
+
+
 
 
 
 void setup();
 void loop();
 
+void timerCallback();
 void receiveCommands();
 void handleControlCommand(aJsonObject* json);
 void handleDisconnect(aJsonObject* json);
@@ -148,3 +194,8 @@ void resetCompass();
 int getType(aJsonObject* json);
 void decodeMotorCommand(aJsonObject* json, int* motor_id, int* direction, int* speed);
 void decodeDriveCommand(aJsonObject* json, int* left, int* right);
+void flashLight(int speed);
+void stop(int motor);
+void senseMotor(int motor);
+void senseLeftRight();
+void print();
