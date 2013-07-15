@@ -43,20 +43,20 @@
 		// Serial.println(mAgConnected ? "MPU6050 connection successful" : "MPU6050 connection failed");
 		resetAG();
 
-		// //setup pulse counter callbacks
-		// // Quadrature encoders
-		// // Left encoder
+		//setup pulse counter callbacks
+		// Quadrature encoders
+		// Left encoder
 		// pinMode(c_LeftEncoderPinA, INPUT);      // sets pin A as input
 		// digitalWrite(c_LeftEncoderPinA, LOW);  // turn on pullup resistors
-		// pinMode(LEFT_ENCODER, INPUT);      // sets pin B as input
-		// digitalWrite(LEFT_ENCODER, LOW);  // turn on pullup resistors
-		// attachInterrupt(LEFT_ENCODER_INTERRUPT, HandleLeftMotorInterruptA, RISING);
-		// // Right encoder
+		pinMode(LEFT_ENCODER, INPUT);      // sets pin B as input
+		digitalWrite(LEFT_ENCODER, LOW);  // turn on pullup resistors
+		attachInterrupt(LEFT_ENCODER_INTERRUPT, HandleLeftMotorInterruptA, RISING);
+		// Right encoder
 		// pinMode(c_RightEncoderPinA, INPUT);      // sets pin A as input
 		// digitalWrite(c_RightEncoderPinA, LOW);  // turn on pullup resistors
-		// pinMode(RIGHT_ENCODER, INPUT);      // sets pin B as input
-		// digitalWrite(RIGHT_ENCODER, LOW);  // turn on pullup resistors
-		// attachInterrupt(RIGHT_ENCODER_INTERRUPT, HandleRightMotorInterruptA, RISING);
+		pinMode(RIGHT_ENCODER, INPUT);      // sets pin B as input
+		digitalWrite(RIGHT_ENCODER, LOW);  // turn on pullup resistors
+		attachInterrupt(RIGHT_ENCODER_INTERRUPT, HandleRightMotorInterruptA, RISING);
 
 	}
 
