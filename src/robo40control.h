@@ -111,7 +111,6 @@ int CURRENT_LIMIT_MOTORS[4] = {CURRENT_LIMIT_A, CURRENT_LIMIT_B, CURRENT_LIMIT_C
 #define OUTLIER_THRESHOLD 5
 
 
-
 #define S2  A1  //not used
 
 #define S4  A3  //not used
@@ -158,13 +157,13 @@ volatile bool _LeftEncoderBSet;
 #define c_RightEncoderPinA 5
 #define c_RightEncoderPinB A7
 volatile bool _RightEncoderBSet;
-// class default I2C address is 0x68
-// specific I2C addresses may be passed as a parameter here
-// AD0 low = 0x68 (default for InvenSense evaluation board)
-// AD0 high = 0x69
-MPU6050 accelgyro;
 
 
+
+bool MOTOR_INVERTED[4] = {false, true, true, true};
+
+bool MOTOR_DIGITAL[4] = {false, false, false, false};
+#define MOTOR_DIGITAL_THRESHOLD 0
 
 
 
@@ -199,3 +198,4 @@ void stop(int motor);
 void senseMotor(int motor);
 void senseLeftRight();
 void print();
+void setMotor(int id, int value);
