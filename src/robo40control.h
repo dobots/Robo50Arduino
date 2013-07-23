@@ -42,6 +42,7 @@ A14 and A15 wheel encoders second (quadrature) line
 #define MOTOR_COMMAND 2
 #define CONTROL_COMMAND 3
 #define DISCONNECT 4
+#define SENSOR_REQUEST 5
 
 #define INT_T 0
 #define DOUBLE_T 1
@@ -176,6 +177,7 @@ void handleControlCommand(aJsonObject* json);
 void handleDisconnect(aJsonObject* json);
 void handleMotorCommand(aJsonObject* json);
 void handleDriveCommand(aJsonObject* json);
+void handleSensorRequest(aJsonObject* json);
 void readCompass();
 void readAG();
 void HandleLeftMotorInterruptA();
@@ -199,3 +201,4 @@ void senseMotor(int motor);
 void senseLeftRight();
 void print();
 void setMotor(int id, int value);
+void handleInput();

@@ -4,14 +4,14 @@
 // GLOBAL VAR
 // --------------------------------------------------------------------
 
-bool debug_on = true;
-int log_level = 3;
+bool debug_on = false;
+int log_level = 2;
 
 // --------------------------------------------------------------------
 // LOCAL VAR
 // --------------------------------------------------------------------
 
-Stream *serialLine;
+Stream *serialLine = NULL;
 
 // --------------------------------------------------------------------
 // FUNCTIONS
@@ -23,35 +23,41 @@ Stream *serialLine;
 // type virtual, already exists.
 int uart_write (char c, FILE *stream)
 {
-    serialLine->write(c) ;
-    return 0;
+	if (serialLine != NULL) {
+		serialLine->write(c) ;
+		return 0;
+	}
 }
 
 void initLogging(Stream *stream) {
-  serialLine = stream;
+	serialLine = stream;
 
-  fdevopen( &uart_write, 0 );
+	fdevopen( &uart_write, 0 );
 }
 
 void LOGi(const int loglevel, const char* fmt, ... )
 {
-  if (loglevel <= log_level) {
-    va_list argptr;
-    va_start(argptr, fmt);
-    vprintf(fmt, argptr);
-    va_end(argptr);
-    serialLine->println("");
-  }
+	if (serialLine == NULL) return;
+
+	if (loglevel <= log_level) {
+		va_list argptr;
+		va_start(argptr, fmt);
+		vprintf(fmt, argptr);
+		va_end(argptr);
+		serialLine->println("");
+	}
 }
 
 void LOGd(const int loglevel, const char* fmt, ... )
 {  
-  if (debug_on && loglevel <= log_level) {
-    va_list argptr;
-    va_start(argptr, fmt);
-    vprintf(fmt, argptr);
-    va_end(argptr);
-    serialLine->println("");
-  }
+	if (serialLine == NULL) return;
+
+	if (debug_on && loglevel <= log_level) {
+		va_list argptr;
+		va_start(argptr, fmt);
+		vprintf(fmt, argptr);
+		va_end(argptr);
+		serialLine->println("");
+	}
 }
 
