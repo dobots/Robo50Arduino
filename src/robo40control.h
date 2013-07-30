@@ -34,7 +34,7 @@ A14 and A15 wheel encoders second (quadrature) line
 #include "aJSON.h"
 #include "MPU6050.h"
 
-//messages
+// messages
 #define HEADER 0xA5
 
 #define SENSOR_DATA 0
@@ -49,18 +49,18 @@ A14 and A15 wheel encoders second (quadrature) line
 #define STRING_T 2
 #define BOOL_T 3
 
-//constants
-#define MAXINCIDENTCOUNT  100
-#define ACCELEROMETER_RANGE 2.0 // +- 2g
-#define GYROSCOPE_RANGE 250.0   // +- 250 deg/s
+// other constants
 
+#define MAXINCIDENTCOUNT  100
+#define OUTLIER_CHECKS 10
+#define OUTLIER_THRESHOLD 5
+
+//// motors
 
 #define ELEVATOR 0
 #define PUMP 1
 #define VACUUM 2
 #define BRUSH 3
-
-// Pin assignments
 
 #define PWM_A 4
 #define PWM_B 5
@@ -94,6 +94,10 @@ int DIRECTION_MOTORS[4] = {DIRECTION_A, DIRECTION_B, DIRECTION_C, DIRECTION_D};
 #define CURRENT_LIMIT_D 1000
 int CURRENT_LIMIT_MOTORS[4] = {CURRENT_LIMIT_A, CURRENT_LIMIT_B, CURRENT_LIMIT_C, CURRENT_LIMIT_D};
 
+bool MOTOR_INVERTED[4] = {false, true, true, true};
+
+//// wheels
+
 #define PWM_LEFT 8
 #define PWM_RIGHT 9
 #define DIRECTION_LEFT_FW 27
@@ -106,32 +110,9 @@ int CURRENT_LIMIT_MOTORS[4] = {CURRENT_LIMIT_A, CURRENT_LIMIT_B, CURRENT_LIMIT_C
 
 #define CURRENT_LIMIT_DRIVE 1000
 
+//// flash light
+
 #define FLASH_LIGHT 10
-
-#define OUTLIER_CHECKS 10
-#define OUTLIER_THRESHOLD 5
-
-
-#define S2  A1  //not used
-
-#define S4  A3  //not used
-
- 
-#define E7  4   // motor ?
-#define E8  5
-#define M4  49
- 
-#define E9  12   // motor ?
-#define E10 13
-#define M5  48
-
-#define E5  6   // hulpmotor 1
-#define M3  51
-#define E6  7   // hulpmotor 2
-#define M4  50
-
-#define CURRENTLIMIT 1000
-#define WAIT1        5000
 
 //// accelero / gyro
 #define MAX_AG_HISTORY 5
@@ -142,30 +123,27 @@ int CURRENT_LIMIT_MOTORS[4] = {CURRENT_LIMIT_A, CURRENT_LIMIT_B, CURRENT_LIMIT_C
 #define GY 4
 #define GZ 5
 
+#define ACCELEROMETER_RANGE 2.0 // +- 2g
+#define GYROSCOPE_RANGE 250.0   // +- 250 deg/s
+
 //// compass
 #define MAX_HEADING_HISTORY 5
 
-//// wheel encoders, these occupy serial 1 due to the interrupts
+//// left encoder
 #define c_LeftEncoderInterrupt 4 //(interrupt 4 is on pin 19)
-#define c_LeftEncoderPinA 4
-#define c_LeftEncoderPinB A6
+#define c_LeftEncoderPinA 19
+#define c_LeftEncoderPinB A14
 #define LeftEncoderIsReversed
 volatile bool _LeftEncoderBSet;
 
- 
-// Right encoder
+//// Right encoder
 #define c_RightEncoderInterrupt 5   //(interrupt 5 is on pin 18)
-#define c_RightEncoderPinA 5
-#define c_RightEncoderPinB A7
+#define c_RightEncoderPinA 18
+#define c_RightEncoderPinB A15
 volatile bool _RightEncoderBSet;
 
-
-
-bool MOTOR_INVERTED[4] = {false, true, true, true};
-
-bool MOTOR_DIGITAL[4] = {false, false, false, false};
-#define MOTOR_DIGITAL_THRESHOLD 0
-
+// bumper
+// 31 and 33
 
 
 void setup();
@@ -202,3 +180,4 @@ void senseLeftRight();
 void print();
 void setMotor(int id, int value);
 void handleInput();
+void timerCB();

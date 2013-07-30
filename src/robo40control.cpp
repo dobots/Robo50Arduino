@@ -83,8 +83,10 @@ void setup() {
 	//connect to computer, uses pin 0 and 1
 	Serial.begin(115200);
 
-	Timer1.initialize(1500000); // initialize to 1s
-	Timer1.attachInterrupt(timerCallback); // attach callback function
+	// Timer1.initialize(1500000); // initialize to 1.5s
+	// Timer1.attachInterrupt(timerCallback); // attach callback function
+	Timer1.initialize(1000);
+	Timer1.attachInterrupt(timerCB);
 	
 	// connection to compass, uses pins 20 and 21
 	Wire.begin();
@@ -115,20 +117,20 @@ void setup() {
 
 	// createJson();
 
-	//setup pulse counter callbacks
-	// Quadrature encoders
-	// Left encoder
-	pinMode(c_LeftEncoderPinA, INPUT);      // sets pin A as input
-	digitalWrite(c_LeftEncoderPinA, LOW);  // turn on pullup resistors
-	pinMode(c_LeftEncoderPinB, INPUT);      // sets pin B as input
-	digitalWrite(c_LeftEncoderPinB, LOW);  // turn on pullup resistors
-	attachInterrupt(c_LeftEncoderInterrupt, HandleLeftMotorInterruptA, RISING);
-	// Right encoder
-	pinMode(c_RightEncoderPinA, INPUT);      // sets pin A as input
-	digitalWrite(c_RightEncoderPinA, LOW);  // turn on pullup resistors
-	pinMode(c_RightEncoderPinB, INPUT);      // sets pin B as input
-	digitalWrite(c_RightEncoderPinB, LOW);  // turn on pullup resistors
-	attachInterrupt(c_RightEncoderInterrupt, HandleRightMotorInterruptA, RISING);
+	// //setup pulse counter callbacks
+	// // Quadrature encoders
+	// // Left encoder
+	// pinMode(c_LeftEncoderPinA, INPUT);      // sets pin A as input
+	// digitalWrite(c_LeftEncoderPinA, LOW);  // turn on pullup resistors
+	// pinMode(c_LeftEncoderPinB, INPUT);      // sets pin B as input
+	// digitalWrite(c_LeftEncoderPinB, LOW);  // turn on pullup resistors
+	// attachInterrupt(c_LeftEncoderInterrupt, HandleLeftMotorInterruptA, RISING);
+	// // Right encoder
+	// pinMode(c_RightEncoderPinA, INPUT);      // sets pin A as input
+	// digitalWrite(c_RightEncoderPinA, LOW);  // turn on pullup resistors
+	// pinMode(c_RightEncoderPinB, INPUT);      // sets pin B as input
+	// digitalWrite(c_RightEncoderPinB, LOW);  // turn on pullup resistors
+	// attachInterrupt(c_RightEncoderInterrupt, HandleRightMotorInterruptA, RISING);
 
 	//setup motors
 	// pinMode(PWM_A, OUTPUT);  
@@ -169,9 +171,19 @@ void setup() {
 	print();
 }
 
+int oncount = 5;
+int interval = 100;
+
+int count = 0;
+
+boolean on = false;
+boolean run = false;
+boolean lastOn = false;
+boolean log_sense = true;
+
 void print() {
-	LOGd(3, "motor: %d, val: %d, speed: %d, delay: %d",
-		id, val, speed, delay_time);
+	LOGd(3, "motor: %d, val: %d, speed: %d, delay: %d, interval: %d, on interval: %d",
+		id, val, speed, delay_time, interval, oncount);
 	// Serial.print("motor: ");
 	// Serial.println(id);
 	// Serial.print("val: ");
@@ -180,6 +192,50 @@ void print() {
 	// Serial.println(speed);
 	// Serial.print("delay: ");
 	// Serial.println(delay_time);
+}
+
+void reset() {
+	oncount = 5;
+	interval = 100;
+	count = 0;
+	run = false;
+	on = false;
+	lastOn = false;
+	log_sense = true;
+}
+
+void timerCB() {
+	if (run) {
+		count++;
+		if (count <= oncount) {
+			on = true;
+		} else {
+			on = false;
+			if (count == interval) {
+				count = 0;
+				log_sense = true;
+			}
+		}
+
+		if (lastOn != on) {
+			LOGi(1, "on %d at %d", on, millis());
+			digitalWrite(PWM_MOTORS[1], on ? HIGH : LOW);
+		}
+		lastOn = on;
+
+		if (on && log_sense) {
+			senseMotor(1);
+
+			LOGd(3, "sense %d", 
+				currentSenseMotor[1]);
+
+			log_sense = false;
+		} else {
+			log_sense = true;
+		}
+	} else {
+		digitalWrite(PWM_MOTORS[1], LOW);
+	}
 }
 
 void timerCallback() {
@@ -294,42 +350,60 @@ void loop()
 
 	// sendData();
 
+	// LOGi(1, "");
+
+	// delay(1000);
+
 } 
 
 void handleInput(int incoming) {
 	switch(incoming) {
 		case 'g':
 		sendData();
+		LOGi(1, "");
+		break;
+		case 'h':
+		run = !run;
+		LOGi(1, "run %d", run);
 		break;
 		case 'r':
-		curSpeedMotor[id - 1] = 255;
-		digitalWrite(DIRECTION_MOTORS[id - 1], LOW);
-		digitalWrite(PWM_MOTORS[id - 1], HIGH);
-		break;
-		case 't':
-		digitalWrite(PWM_MOTORS[id - 1], LOW);
+		reset();
 		break;
 		case '1':
+		oncount--;
+		if (oncount < 1) {
+			oncount = 1;
+		}
+		LOGi(1, "on interval: %d", oncount);
 					// for (int i = 0; i < 100; ++i) {
 					//   secdrive(i, 4);
 					//   delay(1000);
 					// }
 					// val = 130;1
 					// secdrive(130, id);
-		drive(speed, speed);
+		// drive(speed, speed);
 		break;
 		case '2':
+		oncount++;
+		LOGi(1, "on interval: %d", oncount);
 					// val = 70;
 					// secdrive(70, id);
-		drive(-speed, -speed);
+		// drive(-speed, -speed);
 		break;
 		case '3':
+		interval--;
+		if (interval < 1) {
+			interval = 1;
+		}
+		LOGi(1, "interval: %d", interval);
 					// val = 0;
 					// secdrive(0, id);
-		drive(0, 0);
+		// drive(0, 0);
 		break;
 		case '4':
-		drive(-speed, speed); // right
+		interval++;
+		LOGi(1, "interval: %d", interval);		
+		// drive(-speed, speed); // right
 		// val = 255;
 		// secdrive(255, id);
 		// digitalWrite(DIRECTION_D, HIGH);
@@ -451,55 +525,49 @@ void handleInput() {
 
 void receiveCommands()
 {
-	bool send = true;
 
-	aJsonObject* item;
-	if (serial_stream.available()) {
-		item = aJson.parse(&serial_stream);
+	// aJsonObject* item;
+	// if (serial_stream.available()) {
+	// 	item = aJson.parse(&serial_stream);
 
-		if (item == NULL) {
-			LOGd(0, "not a json object!");
-			handleInput();
-			serial_stream.flush();
-			return;
-		}
-	} else {
-		return;
-	}
-
-	LOGd(3, "cmdReceived");
-
-	// aJson.print(item, &serial_stream);
-	// Serial.println(" ");
-
-	switch(getType(item)) {
-		case DRIVE_COMMAND:
-			handleDriveCommand(item);
-			break;
-		case MOTOR_COMMAND:
-			handleMotorCommand(item);
-			break;
-		case CONTROL_COMMAND:
-			handleControlCommand(item);
-			break;
-		case DISCONNECT:
-			handleDisconnect(item);
-			break;
-		case SENSOR_REQUEST:
-			handleSensorRequest(item);
-		default:
-			send = false;
-	}
-	aJson.deleteItem(item);
-
-	// if (send) {
-	// 	sendData();
+	// 	if (item == NULL) {
+	// 		LOGd(0, "not a json object!");
+	// 		// handleInput();
+	// 		serial_stream.flush();
+	// 		return;
+	// 	}
+	// } else {
+	// 	return;
 	// }
 
-	// if (Serial.available()) {
-	//  int incoming = Serial.read();
-	//  handleInput(incoming);
+	// LOGd(3, "cmdReceived");
+
+	// // aJson.print(item, &serial_stream);
+	// // Serial.println(" ");
+
+	// switch(getType(item)) {
+	// 	case DRIVE_COMMAND:
+	// 		handleDriveCommand(item);
+	// 		break;
+	// 	case MOTOR_COMMAND:
+	// 		handleMotorCommand(item);
+	// 		break;
+	// 	case CONTROL_COMMAND:
+	// 		handleControlCommand(item);
+	// 		break;
+	// 	case DISCONNECT:
+	// 		handleDisconnect(item);
+	// 		break;
+	// 	case SENSOR_REQUEST:
+	// 		handleSensorRequest(item);
+	// 	default:
 	// }
+	// aJson.deleteItem(item);
+
+	if (Serial.available()) {
+	 int incoming = Serial.read();
+	 handleInput(incoming);
+	}
 
 	// if (Serial2.available()) {
 	//  int incoming = Serial2.read();
@@ -626,6 +694,7 @@ void readAG() {
 // Interrupt service routines for the left motor's quadrature encoder
 void HandleLeftMotorInterruptA()
 {
+
 	// Test transition; since the interrupt will only fire on 'rising' we don't need to read pin A
 	_LeftEncoderBSet = analogRead(c_LeftEncoderPinB) < 512 ? false : true;   // read the input pin
 
@@ -635,11 +704,14 @@ void HandleLeftMotorInterruptA()
 	#else
 	  _LeftEncoderTicks += _LeftEncoderBSet ? -1 : +1;
 	#endif
+
+	LOGi(1, "interruptA %d", _LeftEncoderTicks);
 }
 	
 // Interrupt service routines for the right motor's quadrature encoder
 void HandleRightMotorInterruptA()
 {
+
 	// Test transition; since the interrupt will only fire on 'rising' we don't need to read pin A
 	_RightEncoderBSet = analogRead(c_RightEncoderPinB) < 512 ? false : true;   // read the input pin  //digitalReadFast
 
@@ -649,6 +721,8 @@ void HandleRightMotorInterruptA()
 	#else
 	  _RightEncoderTicks += _RightEncoderBSet ? -1 : +1;
 	#endif
+
+	LOGi(1, "interruptB %d", _RightEncoderTicks);
 }
 
 // JSON message is of the format:
@@ -901,21 +975,11 @@ void drive(int leftSpeed, int rightSpeed)
 }
 
 void setMotor(int id, int value) {
-	if (MOTOR_DIGITAL[id]) {
-		if (value > MOTOR_DIGITAL_THRESHOLD) {
-			value = HIGH;
-		} else {
-			value = LOW;
-		}
-		curSpeedMotor[id] = value;
-		digitalWrite(PWM_MOTORS[id], value);
-	} else {
-		curSpeedMotor[id] = value;
-		if (MOTOR_INVERTED[id]) {
-			value = 255 - abs(value);   
-		}
-		analogWrite(PWM_MOTORS[id], abs(value));
+	curSpeedMotor[id] = value;
+	if (MOTOR_INVERTED[id]) {
+		value = 255 - abs(value);   
 	}
+	analogWrite(PWM_MOTORS[id], abs(value));
 
 	LOGd(4, "setMotor(%d, %d)",
 		id, abs(value));
