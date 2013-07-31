@@ -14,7 +14,7 @@ TODO
 
 0 and 1 are for serial to pc
 2 is for accel interrupt
-3 is free (PWM)
+3 is free (PWM / interrupt)
 4 to 7, additional motors PWM
 8 and 9, wheels motors PWM
 10 flashlight
@@ -134,6 +134,10 @@ bool MOTOR_INVERTED[4] = {false, true, true, true};
 //// flash light
 
 #define FLASH_LIGHT 10
+
+//// bumper
+#define BUMPER1 31
+#define BUMPER2 33
 
 //// accelero / gyro
 #define MAX_AG_HISTORY 5

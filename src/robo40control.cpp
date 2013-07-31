@@ -207,6 +207,10 @@ void timerCB() {
 }
 
 void timerCallback() {
+    // check bumper
+    if (digitalRead(BUMPER1)) LOGd(1, "bumper1 true!") else LOGd(1, "bumper1 false!"); 
+    if (digitalRead(BUMPER2)) LOGd(1, "bumper2 true!") else LOGd(1, "bumper2 false!");
+
 
 	// check motors
 	for (int i = 0; i < 4; ++i) {
@@ -390,6 +394,11 @@ void handleInput(int incoming) {
 		case 'w': id += 1; LOGd(2, "motor: %d", id); break;
 		case 's': id -= 1; LOGd(2, "motor: %d", id); break;
 		case 'p': print(); break;
+        case 't':
+        	digitalWrite(DIRECTION_RIGHT_FW, HIGH);
+			digitalWrite(DIRECTION_RIGHT_BW, LOW);
+		    analogWrite(PWM_RIGHT, 200);   //PWM Speed Control
+            break;
 		default: LOGd(1, "incoming: %c (%d)", incoming, incoming); break;
 	}
 }
