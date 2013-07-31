@@ -71,16 +71,16 @@ void setup() {
 		setMotor(i, 0);
 	}
 
-	//setup pulse counter callbacks
+	//setup pulse counter callbacks   //interrupts cause problem for drive function
 	// Quadrature encoders
 	// Left encoder
 	pinMode(c_LeftEncoderPinA, INPUT);      // sets pin A as input
 	pinMode(c_LeftEncoderPinB, INPUT);      // sets pin B as input
-	attachInterrupt(c_LeftEncoderInterrupt, HandleLeftMotorInterruptA, RISING);
+	//attachInterrupt(c_LeftEncoderInterrupt, HandleLeftMotorInterruptA, RISING);
 	// Right encoder
 	pinMode(c_RightEncoderPinA, INPUT);      // sets pin A as input
 	pinMode(c_RightEncoderPinB, INPUT);      // sets pin B as input
-	attachInterrupt(c_RightEncoderInterrupt, HandleRightMotorInterruptA, RISING);
+//	attachInterrupt(c_RightEncoderInterrupt, HandleRightMotorInterruptA, RISING);
 
 	pinMode(DIRECTION_LEFT_FW, OUTPUT);
 	pinMode(DIRECTION_LEFT_BW, OUTPUT);
