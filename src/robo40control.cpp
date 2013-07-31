@@ -105,6 +105,9 @@ void setup() {
 
 	pinMode(FLASH_LIGHT, OUTPUT);
 
+    pinMode(BUMPER1, INPUT);
+    pinMode(BUMPER2, INPUT);
+
 	//connect to computer, uses pin 0 and 1
 	Serial.begin(115200);
 	initLogging(&Serial);
@@ -208,9 +211,23 @@ void timerCB() {
 
 void timerCallback() {
     // check bumper
-    if (digitalRead(BUMPER1)) LOGd(1, "bumper1 true!") else LOGd(1, "bumper1 false!"); 
-    if (digitalRead(BUMPER2)) LOGd(1, "bumper2 true!") else LOGd(1, "bumper2 false!");
+    if (digitalRead(BUMPER1))
+    {
+         LOGd(1, "bumper1 true!");
+    }
+    else 
+    {
+        LOGd(1, "bumper1 false!"); 
+    }
 
+    if (digitalRead(BUMPER2))
+    {
+         LOGd(1, "bumper2 true!");
+    }
+    else 
+    {
+        LOGd(1, "bumper2 false!"); 
+    }
 
 	// check motors
 	for (int i = 0; i < 4; ++i) {
