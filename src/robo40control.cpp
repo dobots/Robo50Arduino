@@ -497,12 +497,9 @@ void handleSensorRequest(aJsonObject* json) {
 
 void handleMotorCommand(aJsonObject* json) {
 	LOGd(3, "handleMotorCommand");
-//Serial.println("1");
 	int id = -1, direction = -1, value = -1;
 	decodeMotorCommand(json, &id, &direction, &value);
 	secdrive(value, id);
-//Serial.println("2");
-// TODO: add here the function call to drive the brush motor
 //  id is in case we want to control other mothers, currently a value of 1 is sent
 //  direction, either 0 or 1, where 1 is "forward"
 //  speed, a value between 0 and 255
@@ -596,6 +593,8 @@ void readAG() {
 // Interrupt service routines for the left motor's quadrature encoder
 void HandleLeftMotorInterruptA()
 {
+	LOGi(1, "interruptA %d", _LeftEncoderTicks);
+
     if (curLeftSpeed > 0) 
     {
         lastDirectionLeft = 1;
@@ -623,13 +622,12 @@ void HandleLeftMotorInterruptA()
 	//#else
 	//  _LeftEncoderTicks += _LeftEncoderBSet ? -1 : +1;
 	//#endif
-
-	LOGi(1, "interruptA %d", _LeftEncoderTicks);
 }
 	
 // Interrupt service routines for the right motor's quadrature encoder
 void HandleRightMotorInterruptA()
 {
+    LOGi(1, "interruptB %d", _RightEncoderTicks);
 
     if (curRightSpeed > 0) 
     {
@@ -658,8 +656,6 @@ void HandleRightMotorInterruptA()
 	//#else
 	//  _RightEncoderTicks += _RightEncoderBSet ? -1 : +1;
 	//#endif
-
-	LOGi(1, "interruptB %d", _RightEncoderTicks);
 }
 
 // JSON message is of the format:
@@ -813,7 +809,8 @@ void drive(int leftSpeed, int rightSpeed)
 
 	while ((incidentcount < MAXINCIDENTCOUNT) && 
 		   ((curLeftSpeed != capSpeed(leftSpeed)) || 
-		   	(curRightSpeed != capSpeed(rightSpeed)))) {
+		   	(curRightSpeed != capSpeed(rightSpeed)))) 
+    {
 		senseLeftRight();
 
 		//Serial.print("currentSenseLeft :");Serial.println(currentSenseLeft);
