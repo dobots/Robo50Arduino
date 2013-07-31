@@ -4,31 +4,53 @@ TODO
 
 *check on wheel encoder overflow
 *reading motor commands to interrupt?
-*fix additional motors..
 
 */
 
-/*
-pinout
+
+/*********************************
+*******      pinout      *********
+**********************************
+
 0 and 1 are for serial to pc
 2 is for accel interrupt
 3 is free (PWM)
 4 to 7, additional motors PWM
-8 to 11, wheels motors PWM
+8 and 9, wheels motors PWM
+10 flashlight
+11 free (PWM)
 12 and 13 additional motor PWM
 14 and 15 free (serial channel)
 16 and 17 are reserved for bluetooth (serial channel)
 18 and 19 encoder interrupts
 20 and 21 for I2C Wire library
-22 to 47 free
+22 free
+23 right wheel direction backward
+24 free
+25 right wheel direction forward
+26 free
+27 left wheel direction forward
+28 free
+29 left wheel direction backward
+30 free
+31 bumper sensor 1
+32 free
+33 bumper sensor 2
+34 to 43 free
+44 motor B direction (pump)
+45 motor A direction (elevator)
+46 motor D direction (brush)
+47 motor C direction (vacuum)
 48 to 51 addiional motors digital outs
 52 and 52 wheel motors digital outs
+A0 and A1 current sensing left wheel motor driver
+A2 and A3 current sensing right wheel motor driver
+A4 to A7 free
+A8 and A9 wheel encoders second (quadrature) line
+A10 and A11 free
+A12 to A15 current sensing additional motors (A, B, C, D; elevator, pump, vacuum, brush respectively)
 
-A0 to A3 current sensing wheel motor drivers
-A4 to A13 free
-A14 and A15 wheel encoders second (quadrature) line
-
-*/
+*****************************************/
 
 
 #include "aJSON.h"
@@ -70,7 +92,7 @@ int PWM_MOTORS[4] = {PWM_A, PWM_B, PWM_C, PWM_D};
 
 #define CURRENT_SENSE_A A12
 #define CURRENT_SENSE_B A13
-#define CURRENT_SENSE_C A14
+#define CURRENT_SENSE_C A14 
 #define CURRENT_SENSE_D A15
 int CURRENT_SENSE_MOTORS[4] = {CURRENT_SENSE_A, CURRENT_SENSE_B, CURRENT_SENSE_C, CURRENT_SENSE_D};
 
@@ -141,9 +163,6 @@ volatile bool _LeftEncoderBSet;
 #define c_RightEncoderPinA 18
 #define c_RightEncoderPinB A15
 volatile bool _RightEncoderBSet;
-
-// bumper
-// 31 and 33
 
 
 void setup();
