@@ -78,7 +78,7 @@ A12 to A15 current sensing additional motors (A, B, C, D; elevator, pump, vacuum
 
 //// motors
 
-#define ELEVATOR 0
+#define ELEVATOR 0 //these numbers + 1 is how they are used in the cpp file
 #define PUMP 1
 #define VACUUM 2
 #define BRUSH 3

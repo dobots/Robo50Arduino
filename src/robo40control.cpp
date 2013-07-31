@@ -104,7 +104,6 @@ void setup() {
 	pinMode(CURRENT_SENSE_D, INPUT);
 
 	pinMode(FLASH_LIGHT, OUTPUT);
-    flashLight(200);
 
 	//connect to computer, uses pin 0 and 1
 	Serial.begin(115200);
@@ -146,7 +145,6 @@ void setup() {
 
 	LOGd(1, "ready");
 	print();
-    flashLight(100);
 }
 
 int oncount = 5;
@@ -318,8 +316,6 @@ void loop()
 	readCompass();
 	readAG();
 
-	// sendData();
-
 	// LOGi(1, "");
 
 	// delay(1000);
@@ -328,19 +324,11 @@ void loop()
 
 void handleInput(int incoming) {
 	switch(incoming) {
-		case 'g':
-		sendData();
-		LOGi(1, "");
-		break;
-		case 'h':
-		run = !run;
-		LOGi(1, "run %d", run);
-		break;
-		case 'r':
-		reset();
-		break;
+		case 'g': sendData(); LOGi(1, ""); break;
+		case 'h': run = !run; LOGi(1, "run %d", run); break;
+		case 'r': reset(); break;
 		case '1':
-		oncount--;
+    	oncount--;
 		if (oncount < 1) {
 			oncount = 1;
 		}
@@ -384,103 +372,25 @@ void handleInput(int incoming) {
 		// secdrive(255, id);
 		// digitalWrite(DIRECTION_D, HIGH);
 		break;
-		case 'f':
-		LOGd(2, "flashing");
-		// Serial.println("flashing");
-		flashLight(speed);
-		break;
-		case '5':
-		stop(id);
-		// secdrive(val, id);
-		// digitalWrite(DIRECTION_D, LOW);
-		break;
-		case '6':
-		secdrive(val, id);
-		// analogWrite(PWM_C, 255);
-		break;
-		case '7':
-		// analogWrite(PWM_C, 0);
-		secdrive(0, id);
-		break;
-		case '8':
-		// analogWrite(PWM_C, val);
-		secdrive(200, id);
-		break;
-		case '9':
-		// analogWrite(PWM_C, 80);
-		secdrive(50, id);
-		break;
-		case '0':
-		// analogWrite(PWM_C, 70);
-		secdrive(-50, id);
-		break;
-		case 'z':
-		speed += 10;
-		LOGd(2, "speed: %d", speed);
-		// Serial.print("speed: ");
-		// Serial.println(speed);
-		break;
-		case 'x':
-		speed -= 10;
-		LOGd(2, "speed: %d", speed);
-		// Serial.print("speed: ");
-		// Serial.println(speed);
-		break;
-		case 'c':
-		delay_time += 10;
-		LOGd(2, "delay: %d", delay_time);
-		// Serial.print("delay: ");
-		// Serial.println(delay_time);
-		break;
-		case 'v':
-		delay_time -= 10;
-		LOGd(2, "delay: %d", delay_time);
-		// Serial.print("delay: ");
-		// Serial.println(delay_time);
-		break;   
-		case 'u':
-		val += 10;
-		LOGd(2, "val: %d", val);
-		// Serial.print("Val: ");
-		// Serial.println(val);
-		break;
-		case 'd':
-		val -= 10;
-		LOGd(2, "val: %d", val);
-		// Serial.print("Val: ");
-		// Serial.println(val);
-		break;
-		case 'i':
-		val += 1;
-		LOGd(2, "val: %d", val);
-		// Serial.print("Val: ");
-		// Serial.println(val);
-		break;
-		case 'k':
-		val -= 1;
-		LOGd(2, "val: %d", val);
-		// Serial.print("Val: ");
-		// Serial.println(val);
-		break;
-		case 'w':
-		id += 1;
-		LOGd(2, "motor: %d", id);
-		// Serial.print("Motor: ");
-		// Serial.println(id);
-		break;
-		case 's':
-		id -= 1;
-		LOGd(2, "motor: %d", id);
-		// Serial.print("Motor: ");
-		// Serial.println(id);
-		break;
-		case 'p':
-		print();
-		break;
-		default:
-		LOGd(1, "incoming: %c (%d)",
-			incoming, incoming);
-		break;
+		case 'f': LOGd(2, "flashing"); flashLight(speed); break;
+		case '5': stop(id); break;
+		case '6': secdrive(val, id); break;
+		case '7': secdrive(0, id); break;
+		case '8': secdrive(200, id); break;
+		case '9': secdrive(50, id); break;
+		case '0': secdrive(-50, id); break;
+		case 'z': speed += 10; LOGd(2, "speed: %d", speed);	break;
+		case 'x': speed -= 10; LOGd(2, "speed: %d", speed);	break;
+		case 'c': delay_time += 10; LOGd(2, "delay: %d", delay_time); break;
+		case 'v': delay_time -= 10; LOGd(2, "delay: %d", delay_time); break;   
+		case 'u': val += 10; LOGd(2, "val: %d", val); break;
+		case 'd': val -= 10; LOGd(2, "val: %d", val); break;
+		case 'i': val += 1; LOGd(2, "val: %d", val); break;
+		case 'k': val -= 1;	LOGd(2, "val: %d", val); break;
+		case 'w': id += 1; LOGd(2, "motor: %d", id); break;
+		case 's': id -= 1; LOGd(2, "motor: %d", id); break;
+		case 'p': print(); break;
+		default: LOGd(1, "incoming: %c (%d)", incoming, incoming); break;
 	}
 }
 
