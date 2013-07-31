@@ -11,8 +11,6 @@
 // {"compass":{"heading":119.00000},"accelero":{"x":0.04712,"y":0.00049,"z":0.97757},"gyro":{"x":-0.39674,"y":-1.95318,"z":-1.65563}}
 
 aJsonStream serial_stream(&Serial);
-//aJsonStream *jsonStream;
-//Stream *serial_stream;
 
 int HMC6352Address = 0x42;
 
@@ -40,25 +38,9 @@ int currentSenseRight = 0;
 int reportCSLeft = 0;
 int reportCSRight = 0;
 
-// int curSpeedMotor1 = 0;
-// int curSpeedMotor2 = 0;
-// int curSpeedMotor3 = 0;
-// int curSpeedMotor4 = 0;
-
-
 bool motor_access[4] = {false, false, false, false};
 int curSpeedMotor[4] = {0, 0, 0, 0};
-
-// int currentSenseMotor1 = 0;
-// int currentSenseMotor2 = 0;
-// int currentSenseMotor3 = 0;
-// int currentSenseMotor4 = 0;
 int currentSenseMotor[4] = {0, 0, 0, 0};
-
-// int reportCSMotor1 = 0;
-// int reportCSMotor2 = 0;
-// int reportCSMotor3 = 0;
-// int reportCSMotor4 = 0;
 int reportCSMotor[4] = {0, 0, 0, 0};
 
 int notagain = 0;
@@ -66,6 +48,8 @@ int notagain = 0;
 bool drive_access = false;
 int curLeftSpeed = 0;
 int curRightSpeed = 0;
+int lastDirectionLeft = 0;
+int lastDirectionRight = 0;
 
 int val = 0;
 int id = 1;
@@ -80,68 +64,23 @@ MPU6050 accelgyro;
 
 // --------------------------------------------------------------------
 void setup() {
-	//connect to computer, uses pin 0 and 1
-	Serial.begin(115200);
 
-	// Timer1.initialize(1500000); // initialize to 1.5s
-	// Timer1.attachInterrupt(timerCallback); // attach callback function
-	Timer1.initialize(1000);
-	Timer1.attachInterrupt(timerCB);
-	
-	// connection to compass, uses pins 20 and 21
-	Wire.begin();
-	
-	//connect to bluetooth, uses pin 16 and 17
-	// Serial2.begin(115200);
-	//  Serial2.flush();    
-	//  Serial2.setTimeout(10);
-	
-	initLogging(&Serial);
-
-	//setup compass
-	// Shift the device's documented slave address (0x42) 1 bit right
-	// This compensates for how the TWI library only wants the
-	// 7 most significant bits (with the high bit padded with 0)
-	slaveAddress = HMC6352Address >> 1;   // This results in 0x21 as the address to pass to TWI
-	resetCompass();
-
-	//setup accelero/gyro
-	// initialize device
-	// Serial.println("Initializing Accelero/Gyro MPU6050...");
-	accelgyro.initialize();
-	// verify connection
-	// Serial.println("Testing connection...");
-	ag_connected = accelgyro.testConnection();
-	LOGd(3, ag_connected ? "MPU6050 connection successful" : "MPU6050 connection failed");
-	resetAG();
-
-	// createJson();
-
-	// //setup pulse counter callbacks
-	// // Quadrature encoders
-	// // Left encoder
-	// pinMode(c_LeftEncoderPinA, INPUT);      // sets pin A as input
-	// digitalWrite(c_LeftEncoderPinA, LOW);  // turn on pullup resistors
-	// pinMode(c_LeftEncoderPinB, INPUT);      // sets pin B as input
-	// digitalWrite(c_LeftEncoderPinB, LOW);  // turn on pullup resistors
-	// attachInterrupt(c_LeftEncoderInterrupt, HandleLeftMotorInterruptA, RISING);
-	// // Right encoder
-	// pinMode(c_RightEncoderPinA, INPUT);      // sets pin A as input
-	// digitalWrite(c_RightEncoderPinA, LOW);  // turn on pullup resistors
-	// pinMode(c_RightEncoderPinB, INPUT);      // sets pin B as input
-	// digitalWrite(c_RightEncoderPinB, LOW);  // turn on pullup resistors
-	// attachInterrupt(c_RightEncoderInterrupt, HandleRightMotorInterruptA, RISING);
-
-	//setup motors
-	// pinMode(PWM_A, OUTPUT);  
-	// pinMode(PWM_B, OUTPUT);  
-	// pinMode(PWM_C, OUTPUT);  
-	// pinMode(PWM_D, OUTPUT);  
-
+    //first setup pins, to minimize time that the vacuum pump is on
 	for (int i = 0; i < 4; ++i) {
 		pinMode(PWM_MOTORS[i], OUTPUT);
 		setMotor(i, 0);
 	}
+
+	//setup pulse counter callbacks
+	// Quadrature encoders
+	// Left encoder
+	pinMode(c_LeftEncoderPinA, INPUT);      // sets pin A as input
+	pinMode(c_LeftEncoderPinB, INPUT);      // sets pin B as input
+	attachInterrupt(c_LeftEncoderInterrupt, HandleLeftMotorInterruptA, RISING);
+	// Right encoder
+	pinMode(c_RightEncoderPinA, INPUT);      // sets pin A as input
+	pinMode(c_RightEncoderPinB, INPUT);      // sets pin B as input
+	attachInterrupt(c_RightEncoderInterrupt, HandleRightMotorInterruptA, RISING);
 
 	pinMode(DIRECTION_LEFT_FW, OUTPUT);
 	pinMode(DIRECTION_LEFT_BW, OUTPUT);
@@ -165,10 +104,49 @@ void setup() {
 	pinMode(CURRENT_SENSE_D, INPUT);
 
 	pinMode(FLASH_LIGHT, OUTPUT);
+    flashLight(200);
+
+	//connect to computer, uses pin 0 and 1
+	Serial.begin(115200);
+	initLogging(&Serial);
+
+    // timer for current sensing
+    // TODO: put this down to 100 ms or so, its now on 1500 ms for easier debugging
+	Timer1.initialize(1500000); // initialize to 1.5s
+	Timer1.attachInterrupt(timerCallback); // attach callback function
+
+    // timer for pump; TODO: see how to do this properly, also use a different timer of course
+	//Timer1.initialize(1000);
+	//Timer1.attachInterrupt(timerCB);
+	
+	// connection to compass, uses pins 20 and 21
+	Wire.begin();
+	
+	//connect to bluetooth, uses pin 16 and 17
+	// Serial2.begin(115200);
+	//  Serial2.flush();    
+	//  Serial2.setTimeout(10);
+
+	//setup compass
+	// Shift the device's documented slave address (0x42) 1 bit right
+	// This compensates for how the TWI library only wants the
+	// 7 most significant bits (with the high bit padded with 0)
+	slaveAddress = HMC6352Address >> 1;   // This results in 0x21 as the address to pass to TWI
+	resetCompass();
+
+	//setup accelero/gyro
+	// initialize device
+	accelgyro.initialize();
+	// verify connection
+	ag_connected = accelgyro.testConnection();
+	LOGd(3, ag_connected ? "MPU6050 connection successful" : "MPU6050 connection failed");
+	resetAG();
+
+	// createJson();
 
 	LOGd(1, "ready");
-	// Serial.println("ready");
 	print();
+    flashLight(100);
 }
 
 int oncount = 5;
@@ -184,14 +162,6 @@ boolean log_sense = true;
 void print() {
 	LOGd(3, "motor: %d, val: %d, speed: %d, delay: %d, interval: %d, on interval: %d",
 		id, val, speed, delay_time, interval, oncount);
-	// Serial.print("motor: ");
-	// Serial.println(id);
-	// Serial.print("val: ");
-	// Serial.println(val);
-	// Serial.print("speed: ");
-	// Serial.println(speed);
-	// Serial.print("delay: ");
-	// Serial.println(delay_time);
 }
 
 void reset() {
@@ -510,11 +480,6 @@ void handleInput(int incoming) {
 		default:
 		LOGd(1, "incoming: %c (%d)",
 			incoming, incoming);
-		// Serial.print("incoming: ");
-		// Serial.print((char)incoming);
-		// Serial.print(" (");
-		// Serial.print(incoming);
-		// Serial.println(")");
 		break;
 	}
 }
@@ -581,9 +546,12 @@ void handleControlCommand(aJsonObject* json) {
 }
 
 void handleDisconnect(aJsonObject* json) {
-// is sent when the phone disconnects from the robot
-// best to turn off all motors here
+// is sent when the phone disconnects from the robot, best to turn off all motors here
 	drive(0, 0);
+    for (int i = 0; i < 4; ++i) {
+		setMotor(i, 0);
+	}
+    flashLight(0);
 }
 
 void handleSensorRequest(aJsonObject* json) {
@@ -689,21 +657,36 @@ void readAG() {
 	}
 }
 
-//encoder interrupts
-
 // Interrupt service routines for the left motor's quadrature encoder
 void HandleLeftMotorInterruptA()
 {
+    if (curLeftSpeed > 0) 
+    {
+        lastDirectionLeft = 1;
+    } 
+    else if (curLeftSpeed < 0) 
+    {
+        lastDirectionLeft = -1;
+    }
 
+    if (lastDirectionLeft == 0) return; //early exit because we dont know in which direction we go
+
+    #ifdef LeftEncoderIsReversed
+        _LeftEncoderTicks -= lastDirectionLeft;
+	#else
+	    _LeftEncoderTicks += lastDirectionLeft;
+	#endif
+
+    //for working 2channel encoder
 	// Test transition; since the interrupt will only fire on 'rising' we don't need to read pin A
-	_LeftEncoderBSet = analogRead(c_LeftEncoderPinB) < 512 ? false : true;   // read the input pin
+	//_LeftEncoderBSet = analogRead(c_LeftEncoderPinB) < 512 ? false : true;   // read the input pin
 
 	// and adjust counter + if A leads B
-	#ifdef LeftEncoderIsReversed
-	  _LeftEncoderTicks -= _LeftEncoderBSet ? -1 : +1;
-	#else
-	  _LeftEncoderTicks += _LeftEncoderBSet ? -1 : +1;
-	#endif
+	//#ifdef LeftEncoderIsReversed
+	//  _LeftEncoderTicks -= _LeftEncoderBSet ? -1 : +1;
+	//#else
+	//  _LeftEncoderTicks += _LeftEncoderBSet ? -1 : +1;
+	//#endif
 
 	LOGi(1, "interruptA %d", _LeftEncoderTicks);
 }
@@ -712,15 +695,33 @@ void HandleLeftMotorInterruptA()
 void HandleRightMotorInterruptA()
 {
 
+    if (curRightSpeed > 0) 
+    {
+        lastDirectionRight = 1;
+    } 
+    else if (curRightSpeed < 0) 
+    {
+        lastDirectionRight = -1;
+    }
+
+    if (lastDirectionRight == 0) return; //early exit because we dont know in which direction we go
+
+    #ifdef RightEncoderIsReversed
+        _RightEncoderTicks -= lastDirectionRight;
+	#else
+	    _RightEncoderTicks += lastDirectionRight;
+	#endif
+
+    //for working 2channel encoder
 	// Test transition; since the interrupt will only fire on 'rising' we don't need to read pin A
-	_RightEncoderBSet = analogRead(c_RightEncoderPinB) < 512 ? false : true;   // read the input pin  //digitalReadFast
+    //	_RightEncoderBSet = analogRead(c_RightEncoderPinB) < 512 ? false : true;   // read the input pin  //digitalReadFast
 
 	// and adjust counter + if A leads B
-	#ifdef RightEncoderIsReversed
-	  _RightEncoderTicks -= _RightEncoderBSet ? -1 : +1;
-	#else
-	  _RightEncoderTicks += _RightEncoderBSet ? -1 : +1;
-	#endif
+	//#ifdef RightEncoderIsReversed
+	//  _RightEncoderTicks -= _RightEncoderBSet ? -1 : +1;
+	//#else
+	//  _RightEncoderTicks += _RightEncoderBSet ? -1 : +1;
+	//#endif
 
 	LOGi(1, "interruptB %d", _RightEncoderTicks);
 }
@@ -871,12 +872,7 @@ void drive(int leftSpeed, int rightSpeed)
 
 	LOGd(2, "drive(%d, %d)", 
 		leftSpeed, rightSpeed);
-	// Serial.print("drive(");
-	// Serial.print(leftSpeed);
-	// Serial.print(",");
-	// Serial.print(rightSpeed);
-	// Serial.println(")");
-
+	
 	drive_access = true;
 
 	while ((incidentcount < MAXINCIDENTCOUNT) && 
@@ -957,14 +953,6 @@ void drive(int leftSpeed, int rightSpeed)
 
 		LOGd(3, "left: %d, right: %d, senseLeft: %d, senseRight: %d",
 			curLeftSpeed, curRightSpeed, currentSenseLeft, currentSenseRight);
-		// Serial.print("left: ");
-		// Serial.print(curLeftSpeed);
-		// Serial.print(", right: ");
-		// Serial.print(curRightSpeed);
-		// Serial.print(", senseLeft: ");
-		// Serial.print(currentSenseLeft);
-		// Serial.print(", senseRight: ");
-		// Serial.println(currentSenseRight);
 
 		delay(delay_time);
 
@@ -981,13 +969,6 @@ void setMotor(int id, int value) {
 	}
 	analogWrite(PWM_MOTORS[id], abs(value));
 
-	LOGd(4, "setMotor(%d, %d)",
-		id, abs(value));
-//  Serial.print("setMotor(");
-//  Serial.print(id);
-//  Serial.print(",");
-//  Serial.print(value);
-//  Serial.println(")");
 }
 
 //driver function for one motor
@@ -995,11 +976,6 @@ void secdrive(int value,int motor)
 {
 	LOGd(2, "secdrive(%d, %d)",
 		motor, value);
-// Serial.print("secdrive(");
-// Serial.print(motor);
-// Serial.print(",");
-// Serial.print(value);
-// Serial.println(")");
 
 	int count = 0;
 	int incidentcount = 0;
@@ -1070,186 +1046,12 @@ void secdrive(int value,int motor)
 
 		LOGd(3, "pin: %d, curSpeed: %d, sense: %d, report: %d",
 			pwmPin, *curSpeed, *sense, *report);
-		// Serial.print("pin: ");
-		// Serial.print(pwmPin);
-		// Serial.print(", curSpeed: ");
-		// Serial.print(*curSpeed);
-		// Serial.print(", sense: ");
-		// Serial.print(*sense);
-		// Serial.print(", report: ");
-		// Serial.println(*report);
 
 		delay(delay_time);
 	}
 
 	motor_access[motor_id] = false;
 	LOGd(2, "done");
-// Serial.println("done");
-
-}
-
-//driver function for one motor
-void secdrive_orig(int value,int motor)
-{
-	LOGd(2, "secdrive(%d, %d)",
-		motor, value);
-// Serial.print("secdrive(");
-// Serial.print(motor);
-// Serial.print(",");
-// Serial.print(value);
-// Serial.println(")");
-
-	int count = 0;
-	int incidentcount = 0;
-
-	int motorPin;
-	int motorPin1;
-	int motorPin2;
-	int enablePin;
-
-	int currentSensePin;
-	int pwmPin;
-	int directionPin;
-
-	int curSpeed = 0;
-// int sense = 0;
-	int report = 0;
-
-// if (motor == 1) {
-//   pwmPin          = PWM_A;
-//   directionPin    = DIRECTION_A;
-//   currentSensePin = CURRENT_SENSE_A;
-
-//   // curSpeed        = curSpeedMotor1;
-//   // sense           = currentSenseMotor1;
-//   // report          = reportCSMotor1;
-// } else if (motor == 2) {
-//   pwmPin          = PWM_B;
-//   directionPin    = DIRECTION_B;
-//   currentSensePin = CURRENT_SENSE_B;
-
-//   // curSpeed        = curSpeedMotor2;
-//   // sense           = currentSenseMotor2;
-//   // report          = reportCSMotor2;
-// } else if (motor == 3) {
-//   pwmPin          = PWM_C;
-//   directionPin    = DIRECTION_C;
-//   currentSensePin = CURRENT_SENSE_C;
-
-//   // curSpeed        = curSpeedMotor3;
-//   // sense           = currentSenseMotor3;
-//   // report          = reportCSMotor3;
-// } else if (motor == 4) {
-//   pwmPin          = PWM_D;
-//   directionPin    = DIRECTION_D;
-//   currentSensePin = CURRENT_SENSE_D;
-
-//   // curSpeed        = curSpeedMotor4;
-//   // sense           = currentSenseMotor4;
-//   // report          = reportCSMotor4;
-// } else {
-//   return;
-// }
-
-	if ((motor < 1) || (motor > 4))
-		return;
-
-	int motor_id = motor -1;
-
-	pwmPin          = PWM_MOTORS[motor_id];
-	directionPin    = DIRECTION_MOTORS[motor_id];
-	currentSensePin = CURRENT_SENSE_MOTORS[motor_id];
-
-	curSpeed        = curSpeedMotor[motor_id];
-// sense           = currentSenseMotor[motor_id];
-	report          = reportCSMotor[motor_id];
-
-	motor_access[motor_id] = true;
-
-	while ((incidentcount < MAXINCIDENTCOUNT) && (curSpeed != capSpeed(value))) {
-		senseMotor(motor_id);
-
-		// //Serial.print("currentSenseLeft :");Serial.println(currentSenseLeft);
-		// //Serial.print("currentSenseRight :");Serial.println(currentSenseRight);
-		if ( (currentSenseMotor[motor_id] < CURRENT_LIMIT_MOTORS[motor_id]) ) { // check for current
-			if (value < curSpeed) {
-				curSpeed--;
-			} else {
-				curSpeed++;
-			}
-		}
-		else {
-			if (value < curSpeed) {
-				curSpeed++;
-			} else {
-				curSpeed--;
-			}
-			incidentcount++;
-			if (incidentcount > MAXINCIDENTCOUNT) {
-						// curSpeed = 0; // reset speed
-						// analogWrite(pwmPin, abs(curSpeed));
-				setMotor(motor_id, curSpeed);
-				return;
-			}
-		}
-		// Serial.print("Count :");Serial.println(count);
-		
-		curSpeed = capSpeed(curSpeed);
-
-		if (curSpeed > 0) {
-			digitalWrite(directionPin, HIGH);
-		} else {
-			digitalWrite(directionPin, LOW);
-		}
-
-		// analogWrite(pwmPin, abs(curSpeed));   //PWM Speed Control
-		setMotor(motor_id, curSpeed);
-
-		LOGd(3, "pin: %d, curSpeed: %d, sense: %d, report: %d",
-			pwmPin, curSpeed, currentSenseMotor[motor_id], 
-			reportCSMotor[motor_id]);
-		// Serial.print("pin: ");
-		// Serial.print(pwmPin);
-		// Serial.print(", curSpeed: ");
-		// Serial.print(curSpeed);
-		// Serial.print(", sense: ");
-		// Serial.print(currentSenseMotor[motor_id]);
-		// Serial.print(", report: ");
-		// Serial.println(reportCSMotor[motor_id]);
-
-		delay(delay_time);
-	}
-
-	motor_access[motor_id] = false;
-
-// if (motor == 1) {
-//   // curSpeedMotor1 = curSpeed;
-//   currentSenseMotor1 = sense;
-//   reportCSMotor1 = report;
-// } else if (motor == 2) {
-//   // curSpeedMotor2 = curSpeed;
-//   currentSenseMotor2 = sense;
-//   reportCSMotor2 = report;
-// } else if (motor == 3) {
-//   // curSpeedMotor3 = curSpeed;
-//   currentSenseMotor3 = sense;
-//   reportCSMotor3 = report;
-// } else if (motor == 4) {
-//   // curSpeedMotor4 = curSpeed;
-//   currentSenseMotor4 = sense;
-//   reportCSMotor4 = report;
-// } else {
-//   return;
-// }
-
-// currentSenseMotor[motor_id]  = sense;
-// reportCSMotor[motor_id]      = report;
-
-// done in setMotor
-// curSpeedMotor[motor_id]      = curSpeed;
-
-	LOGd(2, "done");
-// Serial.println("done");
 
 }
 

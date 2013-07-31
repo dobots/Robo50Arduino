@@ -19,7 +19,7 @@ TODO
 8 and 9, wheels motors PWM
 10 flashlight
 11 free (PWM)
-12 and 13 additional motor PWM
+12 and 13 free (PWM)
 14 and 15 free (serial channel)
 16 and 17 are reserved for bluetooth (serial channel)
 18 and 19 encoder interrupts
@@ -41,8 +41,7 @@ TODO
 45 motor A direction (elevator)
 46 motor D direction (brush)
 47 motor C direction (vacuum)
-48 to 51 addiional motors digital outs
-52 and 52 wheel motors digital outs
+48 to 53 free
 A0 and A1 current sensing left wheel motor driver
 A2 and A3 current sensing right wheel motor driver
 A4 to A7 free
