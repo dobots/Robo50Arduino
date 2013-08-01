@@ -30,6 +30,9 @@ long agAvg[6];
 int agMax[6];
 int agMin[6];
 
+unsigned long incidents[MAX_INCIDENT_COUNT];
+unsigned long lastcommand;
+
 volatile int _LeftEncoderTicks = 0;   //value can be changed in interrupt
 volatile int _RightEncoderTicks = 0;
 
@@ -46,8 +49,12 @@ int reportCSMotor[4] = {0, 0, 0, 0};        //but problem with use of pointer!
 int notagain = 0;
 
 bool drive_access = false;
-volatile int curLeftSpeed = 0;  //value can be changed in interrupt
-volatile int curRightSpeed = 0; 
+
+//wheel speeds
+int curLeftSpeed = 0;
+int curRightSpeed = 0;
+int desiredLeftSpeed = 0;
+int desiredRightSpeed = 0;
 int lastDirectionLeft = 0;
 int lastDirectionRight = 0;
 
@@ -120,13 +127,13 @@ void setup() {
     // timer for pump; TODO: see how to do this properly, also use a different timer of course
 	//Timer1.initialize(1000);
 	//Timer1.attachInterrupt(timerCB);
-	
+
 	// connection to compass, uses pins 20 and 21
 	Wire.begin();
-	
+
 	//connect to bluetooth, uses pin 16 and 17
 	// Serial2.begin(115200);
-	//  Serial2.flush();    
+	//  Serial2.flush();
 	//  Serial2.setTimeout(10);
 
 	//setup compass
@@ -134,7 +141,6 @@ void setup() {
 	// This compensates for how the TWI library only wants the
 	// 7 most significant bits (with the high bit padded with 0)
 	slaveAddress = HMC6352Address >> 1;   // This results in 0x21 as the address to pass to TWI
-	resetCompass();
 
 	//setup accelero/gyro
 	// initialize device
@@ -142,7 +148,9 @@ void setup() {
 	// verify connection
 	ag_connected = accelgyro.testConnection();
 	LOGd(3, ag_connected ? "MPU6050 connection successful" : "MPU6050 connection failed");
-	resetAG();
+
+	// reset sensor history
+	resetSensors();
 
 	// createJson();
 
@@ -160,10 +168,7 @@ boolean run = false;
 boolean lastOn = false;
 boolean log_sense = true;
 
-void print() {
-	LOGd(3, "motor: %d, val: %d, speed: %d, delay: %d, interval: %d, on interval: %d",
-		id, val, speed, delay_time, interval, oncount);
-}
+
 
 void reset() {
 	oncount = 5;
@@ -197,7 +202,7 @@ void timerCB() {
 		if (on && log_sense) {
 			senseMotor(1);
 
-			LOGd(3, "sense %d", 
+			LOGd(3, "sense %d",
 				currentSenseMotor[1]);
 
 			log_sense = false;
@@ -210,24 +215,7 @@ void timerCB() {
 }
 
 void timerCallback() {
-    // check bumper
-   /* if (digitalRead(BUMPER1))
-    {
-         LOGd(1, "bumper1 true!");
-    }
-    else 
-    {
-        LOGd(1, "bumper1 false!"); 
-    }
 
-    if (digitalRead(BUMPER2))
-    {
-         LOGd(1, "bumper2 true!");
-    }
-    else 
-    {
-        LOGd(1, "bumper2 false!"); 
-    }*/
 
 	// check motors
 	for (int i = 0; i < 4; ++i) {
@@ -235,7 +223,7 @@ void timerCallback() {
 		if (!(motor_access[i]) && (curSpeedMotor[i] != 0)) {
 			senseMotor(i);
 
-			//LOGd(3, "motor %d, sense %d", 
+			//LOGd(3, "motor %d, sense %d",
 			//	i+1, currentSenseMotor[i]);
 					// Serial.print("motor ");
 					// Serial.print(i+1);
@@ -270,58 +258,13 @@ void timerCallback() {
 			}
 		}
 	}
-
-	// check left / right wheel (only if speed is set)
-	if (!drive_access && ((curLeftSpeed != 0) || (curRightSpeed != 0))) {
-		senseLeftRight();
-
-		//LOGd(3, "senseLeft %d, senseRight %d",
-		//	currentSenseLeft, currentSenseRight);
-			// Serial.print("senseLeft ");
-			// Serial.print(currentSenseLeft);
-			// Serial.print(", senseRight ");
-			// Serial.println(currentSenseRight);
-
-			// if one of the currents is over the limit, stop both motors
-		if ((currentSenseLeft > CURRENT_LIMIT_DRIVE) || (currentSenseRight > CURRENT_LIMIT_DRIVE)) {
-
-			int senseLeft, senseRight;
-			int countLeft, countRight;
-
-					// check if it was only an outlier
-			for (int j = 0; j < OUTLIER_CHECKS; ++j) {
-				senseLeft = analogRead(CURRENT_SENSE_LEFT);
-				senseRight = analogRead(CURRENT_SENSE_RIGHT);
-
-				if (senseLeft > CURRENT_LIMIT_DRIVE) {
-					countLeft++;
-				}
-				if (senseRight > CURRENT_LIMIT_DRIVE) {
-					countRight++;
-				}
-				delay(5);
-			}
-
-			if ((countLeft > OUTLIER_THRESHOLD) || (countRight > OUTLIER_THRESHOLD)) {
-				curLeftSpeed = 0;
-				curRightSpeed = 0;
-
-				digitalWrite(PWM_LEFT, 0);
-				digitalWrite(PWM_RIGHT, 0);
-
-				//LOGd(0, "INITIATING EMERGENCY SHUTDOWN FOR DRIVES");
-							// Serial.println("INITIATING EMERGENCY SHUTDOWN FOR DRIVES");
-			}
-		}
-	}
-
 }
 
 void senseLeftRight() {
 	currentSenseLeft = analogRead(CURRENT_SENSE_LEFT);
 	currentSenseRight = analogRead(CURRENT_SENSE_RIGHT);
 	reportCSLeft = (currentSenseLeft > reportCSLeft ? currentSenseLeft : reportCSLeft); // track maximum current sensed
-	reportCSRight = (currentSenseRight > reportCSRight ? currentSenseRight : reportCSRight);  
+	reportCSRight = (currentSenseRight > reportCSRight ? currentSenseRight : reportCSRight);
 }
 
 void senseMotor(int motor) {
@@ -333,6 +276,7 @@ void loop()
 {
 
 	receiveCommands();
+	drive();
 
 	readCompass();
 	readAG();
@@ -341,7 +285,7 @@ void loop()
 
 	// delay(1000);
 
-} 
+}
 
 void handleInput(int incoming) {
 	switch(incoming) {
@@ -381,14 +325,17 @@ void handleInput(int incoming) {
 		break;
 		case '4':
 		interval++;
-		LOGi(1, "interval: %d", interval);		
+		LOGi(1, "interval: %d", interval);
 		// drive(-speed, speed); // right
 		// val = 255;
 		// secdrive(255, id);
 		// digitalWrite(DIRECTION_D, HIGH);
 		break;
 		case 'q':
-		drive(speed, -speed);
+		lastcommand = millis();
+		desiredLeftSpeed = speed;
+		desiredRightSpeed = speed;
+		//drive(speed, -speed);
 		// val = 255;
 		// secdrive(255, id);
 		// digitalWrite(DIRECTION_D, HIGH);
@@ -403,7 +350,7 @@ void handleInput(int incoming) {
 		case 'z': speed += 10; LOGd(2, "speed: %d", speed);	break;
 		case 'x': speed -= 10; LOGd(2, "speed: %d", speed);	break;
 		case 'c': delay_time += 10; LOGd(2, "delay: %d", delay_time); break;
-		case 'v': delay_time -= 10; LOGd(2, "delay: %d", delay_time); break;   
+		case 'v': delay_time -= 10; LOGd(2, "delay: %d", delay_time); break;
 		case 'u': val += 10; LOGd(2, "val: %d", val); break;
 		case 'd': val -= 10; LOGd(2, "val: %d", val); break;
 		case 'i': val += 1; LOGd(2, "val: %d", val); break;
@@ -509,7 +456,10 @@ void handleDriveCommand(aJsonObject* json) {
 	LOGd(3, "hanldeDriveCommand");
 	int leftSpeed = 0, rightSpeed = 0;
 	decodeDriveCommand(json, &leftSpeed, &rightSpeed);
-	drive(leftSpeed, rightSpeed);
+	lastcommand = millis();
+	desiredRightSpeed = capSpeed(rightSpeed);
+	desiredLeftSpeed = capSpeed(leftSpeed);
+	//drive(leftSpeed, rightSpeed);
 }
 
 void readCompass() {
@@ -524,13 +474,13 @@ void readCompass() {
 	Wire.requestFrom(slaveAddress, 2);        // Request the 2 byte heading (MSB comes first)
 	int i = 0;
 	while(Wire.available() && i < 2)
-	{ 
+	{
 		headingData[i] = Wire.read();
 		i++;
 	}
 	headingValue = headingData[0]*256 + headingData[1];  // Put the MSB and LSB together
 
-	PushFront(headingValue, headingHistory, MAX_HEADING_HISTORY);
+	pushFront(headingValue, headingHistory, MAX_HEADING_HISTORY);
 
 	//calculate new min / max values
 	if (headingValue > headingMax) {
@@ -543,7 +493,7 @@ void readCompass() {
 
 	//calculate new rolling average
 	long nHeadingAvg = 0L;
-	int elements = 0;    
+	int elements = 0;
 	for (int i = 0; i < MAX_HEADING_HISTORY; i++)
 	{
 		if (headingHistory[i] == -1.0) continue;
@@ -566,7 +516,7 @@ void readAG() {
 	{
 			// agValue[j] = agValue[j] / (32767 / 2) * 9.81;
 
-		PushFront(agValue[j], agHistory[j], MAX_AG_HISTORY);
+		pushFront(agValue[j], agHistory[j], MAX_AG_HISTORY);
 
 			//calculate the new min / max values
 		if (agValue[j] > agMax[j]) {
@@ -591,18 +541,17 @@ void readAG() {
 }
 
 // Interrupt service routines for the left motor's quadrature encoder
-void HandleLeftMotorInterruptA()
-{
-	if (curLeftSpeed > 0) 
+void HandleLeftMotorInterruptA() {
+	if (curLeftSpeed > 0)
     {
         lastDirectionLeft = 1;
-    } 
-    else if (curLeftSpeed < 0) 
+    }
+    else if (curLeftSpeed < 0)
     {
         lastDirectionLeft = -1;
     }
 
-    if (lastDirectionLeft == 0) return; //early exit because we dont know in which direction we go
+    if (lastDirectionLeft == 0) return; //early exit because we dont know in which direction we go yet
 
     #ifdef LeftEncoderIsReversed
         _LeftEncoderTicks -= lastDirectionLeft;
@@ -624,15 +573,14 @@ void HandleLeftMotorInterruptA()
     //LOGi(1, "interruptA %d", _LeftEncoderTicks);  ///be very careful with this line!
 
 }
-	
+
 // Interrupt service routines for the right motor's quadrature encoder
-void HandleRightMotorInterruptA()
-{
-    if (curRightSpeed > 0) 
+void HandleRightMotorInterruptA() {
+    if (curRightSpeed > 0)
     {
         lastDirectionRight = 1;
-    } 
-    else if (curRightSpeed < 0) 
+    }
+    else if (curRightSpeed < 0)
     {
         lastDirectionRight = -1;
     }
@@ -676,6 +624,10 @@ void sendData() {
 	aJson.addItemToObject(json, "header", header);
 
 	data = aJson.createObject();
+
+	///TODO: BUMPER
+	//group = aJson.createObject();
+	//aJson.
 
 	// COMPASS
 	group = aJson.createObject();
@@ -727,7 +679,7 @@ void sendData() {
 	aJson.addItemToObject(sub, "current", item);
 	aJson.addNumberToObject(sub, "speed", curRightSpeed);
 	aJson.addItemToObject(group, "right", sub);
-	
+
 	aJson.addItemToObject(data, "wheels", group);
 
 	// MOTORS
@@ -769,7 +721,7 @@ void sendData() {
 	aJson.addNumberToObject(sub, "speed", curSpeedMotor[BRUSH]);
 	aJson.addItemToObject(group, "brush", sub);
 
-	aJson.addItemToObject(data, "motors", group);   
+	aJson.addItemToObject(data, "motors", group);
 
 	aJson.addItemToObject(json, "data", data);
 
@@ -778,44 +730,108 @@ void sendData() {
 	aJson.deleteItem(json);
 }
 
-void stop(int motor) {
-
-	if ((motor < 1) || (motor > 4))
-		return;
-
-	int motor_id = motor -1;
-
-	// curSpeedMotor[motor_id] = 0;
-	// analogWrite(PWM_MOTORS[motor_id], 0);   //PWM Speed Control
-	setMotor(motor_id, 0);
-}
-
-void flashLight(int speed) {
-	analogWrite(FLASH_LIGHT, speed);
-}
 
 // actuator functions
-
-// actuator functions
-void drive(int leftSpeed, int rightSpeed)
+void drive()
 {
+	//first check current sensors and tune down desired speed if current is too high
+	senseLeftRight();
+	if ( (currentSenseLeft > CURRENT_LIMIT_DRIVE) || (currentSenseRight > CURRENT_LIMIT_DRIVE) )
+	{
+		//tune down desiredspeed of both wheels by a percentage
+		desiredRightSpeed = desiredRightSpeed * 0.8;
+		desiredLeftSpeed = desiredLeftSpeed * 0.8;
+
+		pushIncident(); //store incident
+		//LOGd(2, "Too much current in one of the wheels: %d, %d", currentSenseLeft, currentSenseRight);
+	}
+
+	//secondly, check if desiredspeed received too long ago, or too many incidents recently, and if so, refuse to move
+	unsigned long time = millis();
+	unsigned long incidentDifference = time - incidents[MAX_INCIDENT_COUNT - 1];
+	unsigned long commandDifference = time - lastcommand;
+		//differences should underflow when time overflowed
+
+	//time should be bigger than INCIDENTTIMEOUT b/c incidents are initialized to 0
+	//also note that outliers are ignored implicitly here: one incident doesnt do much at all
+	if ((commandDifference > COMMAND_TIMEOUT) || ((time > INCIDENT_TIMEOUT) && (incidentDifference < INCIDENT_TIMEOUT)))
+	{
+		//bluntly put everything to zero
+		curLeftSpeed = 0;
+		curRightSpeed = 0;
+		desiredLeftSpeed = 0;
+		desiredRightSpeed = 0;
+
+		//LOGi(1, "Wheel speed set to zero due to problem: no commands or too many incidents!");
+		//LOGd(3, "senseLeft: %d, senseRight: %d", currentSenseLeft, currentSenseRight);
+		//LOGd(3, "last command received: %d, now: %d", lastcommand, time);
+	}
+
+	//So far so good, move closer to desired speed
+	if (desiredRightSpeed < curRightSpeed) {
+		curRightSpeed--;   ///TODO: make this proportional in a neat way, to allow making turns better
+	} else if (desiredRightSpeed > curRightSpeed) {
+		curRightSpeed++;
+	}
+
+	if (desiredLeftSpeed < curLeftSpeed) {
+		curLeftSpeed--;
+	} else if (desiredLeftSpeed > curLeftSpeed) {
+		curLeftSpeed++;
+	}
+
+	//finally check bumpers to disallow movement forward
+	int bump1 = digitalRead(BUMPER1);
+    int bump2 = digitalRead(BUMPER2);
+
+	if ((bump1 == 0) || (bump2 == 0)) //bumper pressed
+	{
+		//blunty overwrite any intentions for going forward, then proceed as usual
+		if (curRightSpeed > 0) curRightSpeed = 0;
+		if (curLeftSpeed > 0) curLeftSpeed = 0;
+
+		if (desiredRightSpeed > 0) desiredRightSpeed = 0;
+		if (desiredLeftSpeed > 0) desiredLeftSpeed = 0;
+
+		//LOGi(2,"Bumper pressed, only allowing backwards movement!");
+	}
+
+	if (curLeftSpeed > 0) digitalWrite(DIRECTION_LEFT_FW, HIGH); else digitalWrite(DIRECTION_LEFT_FW, LOW);
+	if (curLeftSpeed < 0) digitalWrite(DIRECTION_LEFT_BW, HIGH); else digitalWrite(DIRECTION_LEFT_BW, LOW);
+
+	if (curRightSpeed > 0) digitalWrite(DIRECTION_RIGHT_FW, HIGH); else digitalWrite(DIRECTION_RIGHT_FW, LOW);
+	if (curRightSpeed < 0) digitalWrite(DIRECTION_RIGHT_BW, HIGH); else digitalWrite(DIRECTION_RIGHT_BW, LOW);
+
+	analogWrite(PWM_LEFT, abs(curLeftSpeed));   //PWM Speed Control
+	analogWrite(PWM_RIGHT, abs(curRightSpeed));   //PWM Speed Control
+
+	//LOGd(3, "left: %d, right: %d, senseLeft: %d, senseRight: %d",
+	//		curLeftSpeed, curRightSpeed, currentSenseLeft, currentSenseRight);
+
+	return;
+
+}
+
+// actuator functions
+
+void drive(int leftSpeed, int rightSpeed) {
 	int count = 0;
 	int incidentcount = 0;
 
 	// int curLeftSpeed = 0;
-	// int curRightSpeed = 
+	// int curRightSpeed =
 
 	leftSpeed = capSpeed(leftSpeed);
 	rightSpeed = capSpeed(rightSpeed);
 
-	LOGd(2, "drive(%d, %d)", 
+	LOGd(2, "drive(%d, %d)",
 		leftSpeed, rightSpeed);
-	
+
 	drive_access = true;
 
-	while ((incidentcount < MAXINCIDENTCOUNT) && 
-		   ((curLeftSpeed != capSpeed(leftSpeed)) || 
-		   	(curRightSpeed != capSpeed(rightSpeed)))) 
+	while ((incidentcount < MAX_INCIDENT_COUNT) &&
+		   ((curLeftSpeed != capSpeed(leftSpeed)) ||
+		   	(curRightSpeed != capSpeed(rightSpeed))))
     {
 		senseLeftRight();
 
@@ -835,7 +851,7 @@ void drive(int leftSpeed, int rightSpeed)
 				curLeftSpeed--;
 			}
 			incidentcount++;
-			if (incidentcount > MAXINCIDENTCOUNT) {
+			if (incidentcount > MAX_INCIDENT_COUNT) {
 				curRightSpeed = 0; // reset speed
 				curLeftSpeed = 0;
 			}
@@ -855,13 +871,13 @@ void drive(int leftSpeed, int rightSpeed)
 				curRightSpeed--;
 			}
 			incidentcount++;
-			if (incidentcount > MAXINCIDENTCOUNT) {
+			if (incidentcount > MAX_INCIDENT_COUNT) {
 				curRightSpeed = 0; // reset speed
 				curLeftSpeed = 0;
 			}
 		}
 		// Serial.print("Count :");Serial.println(count);
-		
+
 		curLeftSpeed = capSpeed(curLeftSpeed);
 		curRightSpeed = capSpeed(curRightSpeed);
 
@@ -901,13 +917,30 @@ void drive(int leftSpeed, int rightSpeed)
 
 }
 
+
 void setMotor(int id, int value) {
 	curSpeedMotor[id] = value;
 	if (MOTOR_INVERTED[id]) {
-		value = 255 - abs(value);   
+		value = 255 - abs(value);
 	}
 	analogWrite(PWM_MOTORS[id], abs(value));
 
+}
+
+void stop(int motor) {
+
+	if ((motor < 1) || (motor > 4))
+		return;
+
+	int motor_id = motor -1;
+
+	// curSpeedMotor[motor_id] = 0;
+	// analogWrite(PWM_MOTORS[motor_id], 0);   //PWM Speed Control
+	setMotor(motor_id, 0);
+}
+
+void flashLight(int speed) {
+	analogWrite(FLASH_LIGHT, speed);
 }
 
 //driver function for one motor
@@ -947,7 +980,7 @@ void secdrive(int value,int motor)
 
 	motor_access[motor_id] = true;
 
-	while ((incidentcount < MAXINCIDENTCOUNT) && (*curSpeed != capSpeed(value))) {
+	while ((incidentcount < MAX_INCIDENT_COUNT) && (*curSpeed != capSpeed(value))) {
 		senseMotor(motor_id);
 
 		if ( (*sense < CURRENT_LIMIT_MOTORS[motor_id]) ) { // check for current
@@ -964,14 +997,14 @@ void secdrive(int value,int motor)
 				(*curSpeed)--;
 			}
 			incidentcount++;
-			if (incidentcount > MAXINCIDENTCOUNT) {
+			if (incidentcount > MAX_INCIDENT_COUNT) {
 						// *curSpeed = 0; // reset speed
 						// analogWrite(pwmPin, abs(*curSpeed));
 				setMotor(motor_id, *curSpeed);
 				return;
 			}
 		}
-		
+
 		*curSpeed = capSpeed(*curSpeed);
 
 		if (*curSpeed > 0) {
@@ -994,22 +1027,30 @@ void secdrive(int value,int motor)
 
 }
 
-int capSpeed(int value)
-{
-// return max(min(value,249),-249);
-	return max(min(value,255),-255);   
+
+
+
+//******************************************************************
+// helper functions
+
+int capSpeed(int value) {
+    return max(min(value,249),-249);
 }
 
-
-///helper functions
-
-void PushFront(int val, int* valueList, int len)
-{
-	for (int i = len-2; i >= 0; i--) 
+void pushFront(int val, int* valueList, int len) {
+	for (int i = len-2; i >= 0; i--)
 	{
 		valueList[i+1] = valueList[i];
 	}
 	valueList[0] = val;
+}
+
+void pushIncident() {
+	for (int i = MAX_INCIDENT_COUNT - 2; i >= 0; i-- )
+	{
+		incidents[i + 1] = incidents[i];
+	}
+	incidents[0] = millis();
 }
 
 float formatAcceleroValue(int value) {
@@ -1024,7 +1065,18 @@ float formatCompassValue(int value) {
 	return float(value / 10.0);
 }
 
-void resetAG() {
+void resetSensors() {
+
+	//compass
+	for (int i = 0; i < MAX_HEADING_HISTORY; i++) {
+		headingHistory[i] = -1;
+	}
+
+	headingAvg = -1L;
+	headingMax = -1000000;
+	headingMin = 1000000;
+
+	//AG
 	for (int i = 0; i < 6; ++i)
 	{
 		agValue[i] = 0;
@@ -1036,16 +1088,13 @@ void resetAG() {
 		agMax[i] = -1000000;
 		agMin[i] = 1000000;
 	}
-}
 
-void resetCompass() {
-	for (int i = 0; i < MAX_HEADING_HISTORY; i++) {
-		headingHistory[i] = -1;
+	//current incidents
+	for (int i = 0; i < MAX_INCIDENT_COUNT; i++)
+	{
+		incidents[i] = 0;
 	}
 
-	headingAvg = -1L;
-	headingMax = -1000000;
-	headingMin = 1000000;
 }
 
 int getType(aJsonObject* json) {
@@ -1085,5 +1134,10 @@ void decodeDriveCommand(aJsonObject* json, int* left, int* right) {
 
 	aJsonObject* right_j = aJson.getObjectItem(data, "right");
 	*right = right_j->valueint;
+}
+
+void print() {
+	LOGd(3, "motor: %d, val: %d, speed: %d, delay: %d, interval: %d, on interval: %d",
+		id, val, speed, delay_time, interval, oncount);
 }
 

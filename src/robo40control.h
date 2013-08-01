@@ -1,6 +1,6 @@
 /*
 
-TODO 
+TODO
 
 *check on wheel encoder overflow
 *make pump work!
@@ -73,7 +73,6 @@ A12 to A15 current sensing additional motors (A, B, C, D; elevator, pump, vacuum
 
 // other constants
 
-#define MAXINCIDENTCOUNT  100
 #define OUTLIER_CHECKS 10
 #define OUTLIER_THRESHOLD 5
 
@@ -92,7 +91,7 @@ int PWM_MOTORS[4] = {PWM_A, PWM_B, PWM_C, PWM_D};
 
 #define CURRENT_SENSE_A A12
 #define CURRENT_SENSE_B A13
-#define CURRENT_SENSE_C A14 
+#define CURRENT_SENSE_C A14
 #define CURRENT_SENSE_D A15
 int CURRENT_SENSE_MOTORS[4] = {CURRENT_SENSE_A, CURRENT_SENSE_B, CURRENT_SENSE_C, CURRENT_SENSE_D};
 
@@ -105,7 +104,7 @@ int CURRENT_SENSE_MOTORS[4] = {CURRENT_SENSE_A, CURRENT_SENSE_B, CURRENT_SENSE_C
 #define DIRECTION_C 47	// vacuum
 						// + direction -> blowing
 						// - direction -> sucking -> OK
-#define DIRECTION_D 46 	// brush 
+#define DIRECTION_D 46 	// brush
 						// - direction -> OK
 						// + direction -> wrong
 int DIRECTION_MOTORS[4] = {DIRECTION_A, DIRECTION_B, DIRECTION_C, DIRECTION_D};
@@ -131,6 +130,9 @@ bool MOTOR_INVERTED[4] = {false, true, true, true};
 #define CURRENT_SENSE_RIGHT A2
 
 #define CURRENT_LIMIT_DRIVE 1000
+#define COMMAND_TIMEOUT 10000    ///TODO: set this to 500ms or so for use with ROS
+#define INCIDENT_TIMEOUT 5000
+#define MAX_INCIDENT_COUNT 50
 
 //// flash light
 
@@ -184,15 +186,16 @@ void readAG();
 void HandleLeftMotorInterruptA();
 void HandleRightMotorInterruptA();
 void sendData();
+void drive();
 void drive(int leftSpeed, int rightSpeed);
 void secdrive(int value,int motor);
 int capSpeed(int value);
-void PushFront(int val, int* valueList, int len);
+void pushFront(int val, int* valueList, int len);
+void pushIncident();
 float formatAcceleroValue(int value);
 float formatGyroValue(int value);
 float formatCompassValue(int value);
-void resetAG();
-void resetCompass();
+void resetSensors();
 int getType(aJsonObject* json);
 void decodeMotorCommand(aJsonObject* json, int* motor_id, int* direction, int* speed);
 void decodeDriveCommand(aJsonObject* json, int* left, int* right);
