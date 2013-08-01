@@ -3,7 +3,8 @@
 TODO 
 
 *check on wheel encoder overflow
-*reading motor commands to interrupt?
+*make pump work!
+*dont get stuck in drive loops so long (and afterwards, clean up timer interrupt cause its quite long now)
 
 */
 
@@ -154,18 +155,18 @@ bool MOTOR_INVERTED[4] = {false, true, true, true};
 //// compass
 #define MAX_HEADING_HISTORY 5
 
-//// left encoder
-#define c_LeftEncoderInterrupt 4 //(interrupt 4 is on pin 19)
-#define c_LeftEncoderPinA 19
-#define c_LeftEncoderPinB A14
-#define LeftEncoderIsReversed
-volatile bool _LeftEncoderBSet;
+//// right encoder
+#define c_RightEncoderInterrupt 4 //(interrupt 4 is on pin 19)
+#define c_RightEncoderPinA 19
+#define c_RightEncoderPinB A14
+//#define RightEncoderIsReversed   //example, just to let you know this is checked in the cpp file
+//volatile bool _RightEncoderBSet; //required for working quadrature encoder
 
-//// Right encoder
-#define c_RightEncoderInterrupt 5   //(interrupt 5 is on pin 18)
-#define c_RightEncoderPinA 18
-#define c_RightEncoderPinB A15
-volatile bool _RightEncoderBSet;
+//// left encoder
+#define c_LeftEncoderInterrupt 5   //(interrupt 5 is on pin 18)
+#define c_LeftEncoderPinA 18
+#define c_LeftEncoderPinB A15
+//volatile bool _LeftEncoderBSet;
 
 
 void setup();

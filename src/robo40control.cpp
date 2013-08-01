@@ -30,7 +30,7 @@ long agAvg[6];
 int agMax[6];
 int agMin[6];
 
-volatile int _LeftEncoderTicks = 0;
+volatile int _LeftEncoderTicks = 0;   //value can be changed in interrupt
 volatile int _RightEncoderTicks = 0;
 
 int currentSenseLeft = 0;
@@ -40,14 +40,14 @@ int reportCSRight = 0;
 
 bool motor_access[4] = {false, false, false, false};
 int curSpeedMotor[4] = {0, 0, 0, 0};
-int currentSenseMotor[4] = {0, 0, 0, 0};
-int reportCSMotor[4] = {0, 0, 0, 0};
+int currentSenseMotor[4] = {0, 0, 0, 0};    //TODO: value can be changed in interrupt, so should be volatile,
+int reportCSMotor[4] = {0, 0, 0, 0};        //but problem with use of pointer!
 
 int notagain = 0;
 
 bool drive_access = false;
-int curLeftSpeed = 0;
-int curRightSpeed = 0;
+volatile int curLeftSpeed = 0;  //value can be changed in interrupt
+volatile int curRightSpeed = 0; 
 int lastDirectionLeft = 0;
 int lastDirectionRight = 0;
 
@@ -76,11 +76,11 @@ void setup() {
 	// Left encoder
 	pinMode(c_LeftEncoderPinA, INPUT);      // sets pin A as input
 	pinMode(c_LeftEncoderPinB, INPUT);      // sets pin B as input
-	//attachInterrupt(c_LeftEncoderInterrupt, HandleLeftMotorInterruptA, RISING);
+	attachInterrupt(c_LeftEncoderInterrupt, HandleLeftMotorInterruptA, RISING);
 	// Right encoder
 	pinMode(c_RightEncoderPinA, INPUT);      // sets pin A as input
 	pinMode(c_RightEncoderPinB, INPUT);      // sets pin B as input
-//	attachInterrupt(c_RightEncoderInterrupt, HandleRightMotorInterruptA, RISING);
+	attachInterrupt(c_RightEncoderInterrupt, HandleRightMotorInterruptA, RISING);
 
 	pinMode(DIRECTION_LEFT_FW, OUTPUT);
 	pinMode(DIRECTION_LEFT_BW, OUTPUT);
@@ -211,7 +211,7 @@ void timerCB() {
 
 void timerCallback() {
     // check bumper
-    if (digitalRead(BUMPER1))
+   /* if (digitalRead(BUMPER1))
     {
          LOGd(1, "bumper1 true!");
     }
@@ -227,7 +227,7 @@ void timerCallback() {
     else 
     {
         LOGd(1, "bumper2 false!"); 
-    }
+    }*/
 
 	// check motors
 	for (int i = 0; i < 4; ++i) {
@@ -235,8 +235,8 @@ void timerCallback() {
 		if (!(motor_access[i]) && (curSpeedMotor[i] != 0)) {
 			senseMotor(i);
 
-			LOGd(3, "motor %d, sense %d", 
-				i+1, currentSenseMotor[i]);
+			//LOGd(3, "motor %d, sense %d", 
+			//	i+1, currentSenseMotor[i]);
 					// Serial.print("motor ");
 					// Serial.print(i+1);
 					// Serial.print(", sense ");
@@ -261,8 +261,8 @@ void timerCallback() {
 					setMotor(i, 0);
 									// digitalWrite(PWM_MOTORS[i], 0);
 
-					LOGd(0, "INITIATING EMERGENCY SHUTDOWN FOR MOTOR %d",
-						i+1);
+					//LOGd(0, "INITIATING EMERGENCY SHUTDOWN FOR MOTOR %d",
+					//	i+1);
 									// Serial.print("INITIATING EMERGENCY SHUTDOWN FOR MOTOR ");
 									// Serial.println(i+1);
 				}
@@ -275,8 +275,8 @@ void timerCallback() {
 	if (!drive_access && ((curLeftSpeed != 0) || (curRightSpeed != 0))) {
 		senseLeftRight();
 
-		LOGd(3, "senseLeft %d, senseRight %d",
-			currentSenseLeft, currentSenseRight);
+		//LOGd(3, "senseLeft %d, senseRight %d",
+		//	currentSenseLeft, currentSenseRight);
 			// Serial.print("senseLeft ");
 			// Serial.print(currentSenseLeft);
 			// Serial.print(", senseRight ");
@@ -309,7 +309,7 @@ void timerCallback() {
 				digitalWrite(PWM_LEFT, 0);
 				digitalWrite(PWM_RIGHT, 0);
 
-				LOGd(0, "INITIATING EMERGENCY SHUTDOWN FOR DRIVES");
+				//LOGd(0, "INITIATING EMERGENCY SHUTDOWN FOR DRIVES");
 							// Serial.println("INITIATING EMERGENCY SHUTDOWN FOR DRIVES");
 			}
 		}
@@ -593,9 +593,7 @@ void readAG() {
 // Interrupt service routines for the left motor's quadrature encoder
 void HandleLeftMotorInterruptA()
 {
-	LOGi(1, "interruptA %d", _LeftEncoderTicks);
-
-    if (curLeftSpeed > 0) 
+	if (curLeftSpeed > 0) 
     {
         lastDirectionLeft = 1;
     } 
@@ -622,13 +620,14 @@ void HandleLeftMotorInterruptA()
 	//#else
 	//  _LeftEncoderTicks += _LeftEncoderBSet ? -1 : +1;
 	//#endif
+
+    //LOGi(1, "interruptA %d", _LeftEncoderTicks);  ///be very careful with this line!
+
 }
 	
 // Interrupt service routines for the right motor's quadrature encoder
 void HandleRightMotorInterruptA()
 {
-    LOGi(1, "interruptB %d", _RightEncoderTicks);
-
     if (curRightSpeed > 0) 
     {
         lastDirectionRight = 1;
@@ -656,6 +655,8 @@ void HandleRightMotorInterruptA()
 	//#else
 	//  _RightEncoderTicks += _RightEncoderBSet ? -1 : +1;
 	//#endif
+
+    //LOGi(1, "interruptB %d", _RightEncoderTicks); ///be very careful with this line!
 }
 
 // JSON message is of the format:
@@ -697,8 +698,13 @@ void sendData() {
 
 	// ENCODER
 	group = aJson.createObject();
-	aJson.addNumberToObject(group, "rightEncoder", _RightEncoderTicks);
-	aJson.addNumberToObject(group, "leftEncoder", _LeftEncoderTicks);
+    //Ticks can be changed in the interrupts and its a 2-byte value (most likely not atomic)
+    //Therefore disable the interrupts while sending the data here!
+    uint8_t SaveSREG = SREG;                                            // save interrupt flag
+    cli();                                                              // disable interrupts
+    aJson.addNumberToObject(group, "rightEncoder", _RightEncoderTicks); // access the shared data
+	aJson.addNumberToObject(group, "leftEncoder", _LeftEncoderTicks);   //
+    SREG = SaveSREG;                                                    // restore the interrupt flag
 	aJson.addItemToObject(data, "odom", group);
 
 	// WHEELS
