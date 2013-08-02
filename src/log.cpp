@@ -1,10 +1,17 @@
+#include "debug.h"
 #include "log.h"
+
 
 // --------------------------------------------------------------------
 // GLOBAL VAR
 // --------------------------------------------------------------------
 
-bool debug_on = true;
+#ifdef DEBUG
+	bool debug_on = true;
+#else
+	bool debug_on = false;
+#endif
+
 int log_level = 3;
 
 // --------------------------------------------------------------------
@@ -49,7 +56,7 @@ void LOGi(const int loglevel, const char* fmt, ... )
 }
 
 void LOGd(const int loglevel, const char* fmt, ... )
-{  
+{
 	if (serialLine == NULL) return;
 
 	if (debug_on && loglevel <= log_level) {

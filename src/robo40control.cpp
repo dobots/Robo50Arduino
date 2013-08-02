@@ -1,28 +1,21 @@
-#include "Arduino.h"
-#include "Wire.h"
-
-//#include "digitalWriteFast.h"  //no need as we use analogRead (unfortunately..)
-
+#include "debug.h"
 #include "robo40control.h"
-#include "TimerOne.h"
-#include "log.h"
+
 
 // JSON message is of the format:
 // {"compass":{"heading":119.00000},"accelero":{"x":0.04712,"y":0.00049,"z":0.97757},"gyro":{"x":-0.39674,"y":-1.95318,"z":-1.65563}}
 
 aJsonStream serial_stream(&Serial);
 
+// compass and accelero variables
 int HMC6352Address = 0x42;
-
-// This is calculated in the setup() function
-int slaveAddress;
+int slaveAddress; // This is calculated in the setup() function
 byte headingData[2];
 int headingValue;
 int headingHistory[MAX_HEADING_HISTORY];
 long headingAvg = -1L;
 int headingMax = -1;
 int headingMin = 10000;
-
 bool ag_connected = false;
 int agValue[6];
 int agHistory[6][MAX_AG_HISTORY];
@@ -30,38 +23,31 @@ long agAvg[6];
 int agMax[6];
 int agMin[6];
 
+//wheel motor / encoder variables
 unsigned long incidents[MAX_INCIDENT_COUNT];
 unsigned long lastcommand;
-
-volatile int _LeftEncoderTicks = 0;   //value can be changed in interrupt
-volatile int _RightEncoderTicks = 0;
-
-int currentSenseLeft = 0;
-int currentSenseRight = 0;
-int reportCSLeft = 0;
-int reportCSRight = 0;
-
-bool motor_access[4] = {false, false, false, false};
-int curSpeedMotor[4] = {0, 0, 0, 0};
-int currentSenseMotor[4] = {0, 0, 0, 0};    //TODO: value can be changed in interrupt, so should be volatile,
-int reportCSMotor[4] = {0, 0, 0, 0};        //but problem with use of pointer!
-
-int notagain = 0;
-
-bool drive_access = false;
-
-//wheel speeds
 int curLeftSpeed = 0;
 int curRightSpeed = 0;
 int desiredLeftSpeed = 0;
 int desiredRightSpeed = 0;
 int lastDirectionLeft = 0;
 int lastDirectionRight = 0;
+int currentSenseLeft = 0;
+int currentSenseRight = 0;
+int reportCSLeft = 0;
+int reportCSRight = 0;
+volatile int _LeftEncoderTicks = 0;   //value can be changed in interrupt
+volatile int _RightEncoderTicks = 0;
 
-int val = 0;
-int id = 1;
-int speed = 0;
-int delay_time = 0;
+//additional motor variables
+int curSpeedMotor[4] = {0, 0, 0, 0};
+int desiredSpeedMotor[4] = {0, 0, 0, 0};
+int currentSenseMotor[4] = {0, 0, 0, 0};
+int reportCSMotor[4] = {0, 0, 0, 0};
+unsigned long motorIncidents[4][MAX_INCIDENT_COUNT];
+
+// sent message number variable
+int msgCounter;
 
 // class default I2C address is 0x68
 // specific I2C addresses may be passed as a parameter here
@@ -75,7 +61,7 @@ void setup() {
     //first setup pins, to minimize time that the vacuum pump is on
 	for (int i = 0; i < 4; ++i) {
 		pinMode(PWM_MOTORS[i], OUTPUT);
-		setMotor(i, 0);
+		stop(i);
 	}
 
 	//setup pulse counter callbacks   //interrupts cause problem for drive function
@@ -119,322 +105,154 @@ void setup() {
 	Serial.begin(115200);
 	initLogging(&Serial);
 
-    // timer for current sensing
-    // TODO: put this down to 100 ms or so, its now on 1500 ms for easier debugging
-	Timer1.initialize(1500000); // initialize to 1.5s
-	Timer1.attachInterrupt(timerCallback); // attach callback function
-
-    // timer for pump; TODO: see how to do this properly, also use a different timer of course
+	///TODO: make pump work
+    // timer for pump;
 	//Timer1.initialize(1000);
 	//Timer1.attachInterrupt(timerCB);
 
 	// connection to compass, uses pins 20 and 21
 	Wire.begin();
 
-	//connect to bluetooth, uses pin 16 and 17
-	// Serial2.begin(115200);
-	//  Serial2.flush();
-	//  Serial2.setTimeout(10);
+	// connect to bluetooth, uses pin 16 and 17
+	//Serial2.begin(115200);
+	//Serial2.flush();
+	//Serial2.setTimeout(10);
 
-	//setup compass
+	// setup compass
 	// Shift the device's documented slave address (0x42) 1 bit right
 	// This compensates for how the TWI library only wants the
 	// 7 most significant bits (with the high bit padded with 0)
 	slaveAddress = HMC6352Address >> 1;   // This results in 0x21 as the address to pass to TWI
 
-	//setup accelero/gyro
-	// initialize device
-	accelgyro.initialize();
-	// verify connection
-	ag_connected = accelgyro.testConnection();
+	// setup accelero/gyro
+	accelgyro.initialize(); // initialize device
+	ag_connected = accelgyro.testConnection(); // verify connection
 	LOGd(3, ag_connected ? "MPU6050 connection successful" : "MPU6050 connection failed");
 
-	// reset sensor history
-	resetSensors();
-
-	// createJson();
+	resetSensors(); // reset sensor history
 
 	LOGd(1, "ready");
-	print();
-}
-
-int oncount = 5;
-int interval = 100;
-
-int count = 0;
-
-boolean on = false;
-boolean run = false;
-boolean lastOn = false;
-boolean log_sense = true;
-
-
-
-void reset() {
-	oncount = 5;
-	interval = 100;
-	count = 0;
-	run = false;
-	on = false;
-	lastOn = false;
-	log_sense = true;
-}
-
-void timerCB() {
-	if (run) {
-		count++;
-		if (count <= oncount) {
-			on = true;
-		} else {
-			on = false;
-			if (count == interval) {
-				count = 0;
-				log_sense = true;
-			}
-		}
-
-		if (lastOn != on) {
-			LOGi(1, "on %d at %d", on, millis());
-			digitalWrite(PWM_MOTORS[1], on ? HIGH : LOW);
-		}
-		lastOn = on;
-
-		if (on && log_sense) {
-			senseMotor(1);
-
-			LOGd(3, "sense %d",
-				currentSenseMotor[1]);
-
-			log_sense = false;
-		} else {
-			log_sense = true;
-		}
-	} else {
-		digitalWrite(PWM_MOTORS[1], LOW);
-	}
-}
-
-void timerCallback() {
-
-
-	// check motors
-	for (int i = 0; i < 4; ++i) {
-
-		if (!(motor_access[i]) && (curSpeedMotor[i] != 0)) {
-			senseMotor(i);
-
-			//LOGd(3, "motor %d, sense %d",
-			//	i+1, currentSenseMotor[i]);
-					// Serial.print("motor ");
-					// Serial.print(i+1);
-					// Serial.print(", sense ");
-					// Serial.println(currentSenseMotor[i]);
-
-					// if current is over the limit, stop motor
-			if (currentSenseMotor[i] > CURRENT_LIMIT_MOTORS[i]) {
-
-				int sense;
-				int count;
-
-							// check if it was only an outlier
-				for (int j = 0; j < OUTLIER_CHECKS; ++j) {
-					sense = analogRead(CURRENT_SENSE_MOTORS[i]);
-					if (sense > CURRENT_LIMIT_MOTORS[i]) {
-						count++;
-					}
-					delay(5);
-				}
-
-				if (count > OUTLIER_THRESHOLD) {
-					setMotor(i, 0);
-									// digitalWrite(PWM_MOTORS[i], 0);
-
-					//LOGd(0, "INITIATING EMERGENCY SHUTDOWN FOR MOTOR %d",
-					//	i+1);
-									// Serial.print("INITIATING EMERGENCY SHUTDOWN FOR MOTOR ");
-									// Serial.println(i+1);
-				}
-
-			}
-		}
-	}
-}
-
-void senseLeftRight() {
-	currentSenseLeft = analogRead(CURRENT_SENSE_LEFT);
-	currentSenseRight = analogRead(CURRENT_SENSE_RIGHT);
-	reportCSLeft = (currentSenseLeft > reportCSLeft ? currentSenseLeft : reportCSLeft); // track maximum current sensed
-	reportCSRight = (currentSenseRight > reportCSRight ? currentSenseRight : reportCSRight);
-}
-
-void senseMotor(int motor) {
-	currentSenseMotor[motor] = analogRead(CURRENT_SENSE_MOTORS[motor]);
-	reportCSMotor[motor] = max(reportCSMotor[motor], currentSenseMotor[motor]);
 }
 
 void loop()
 {
 
-	receiveCommands();
-	drive();
+	receiveCommands();							//talky talky
 
-	readCompass();
+	drive();  									//wheels
+	for (int i = 1; i <= 4; i++) secdrive(i);	//other motors
+
+	readCompass();								//get sensor data
 	readAG();
-
-	// LOGi(1, "");
-
-	// delay(1000);
 
 }
 
+//**********************************************************************************
+// communication functions
+
 void handleInput(int incoming) {
 	switch(incoming) {
-		case 'g': sendData(); LOGi(1, ""); break;
-		case 'h': run = !run; LOGi(1, "run %d", run); break;
-		case 'r': reset(); break;
-		case '1':
-    	oncount--;
-		if (oncount < 1) {
-			oncount = 1;
-		}
-		LOGi(1, "on interval: %d", oncount);
-					// for (int i = 0; i < 100; ++i) {
-					//   secdrive(i, 4);
-					//   delay(1000);
-					// }
-					// val = 130;1
-					// secdrive(130, id);
-		// drive(speed, speed);
-		break;
-		case '2':
-		oncount++;
-		LOGi(1, "on interval: %d", oncount);
-					// val = 70;
-					// secdrive(70, id);
-		// drive(-speed, -speed);
-		break;
-		case '3':
-		interval--;
-		if (interval < 1) {
-			interval = 1;
-		}
-		LOGi(1, "interval: %d", interval);
-					// val = 0;
-					// secdrive(0, id);
-		// drive(0, 0);
-		break;
-		case '4':
-		interval++;
-		LOGi(1, "interval: %d", interval);
-		// drive(-speed, speed); // right
-		// val = 255;
-		// secdrive(255, id);
-		// digitalWrite(DIRECTION_D, HIGH);
-		break;
-		case 'q':
-		lastcommand = millis();
-		desiredLeftSpeed = speed;
-		desiredRightSpeed = speed;
-		//drive(speed, -speed);
-		// val = 255;
-		// secdrive(255, id);
-		// digitalWrite(DIRECTION_D, HIGH);
-		break;
-		case 'f': LOGd(2, "flashing"); flashLight(speed); break;
-		case '5': stop(id); break;
-		case '6': secdrive(val, id); break;
-		case '7': secdrive(0, id); break;
-		case '8': secdrive(200, id); break;
-		case '9': secdrive(50, id); break;
-		case '0': secdrive(-50, id); break;
-		case 'z': speed += 10; LOGd(2, "speed: %d", speed);	break;
-		case 'x': speed -= 10; LOGd(2, "speed: %d", speed);	break;
-		case 'c': delay_time += 10; LOGd(2, "delay: %d", delay_time); break;
-		case 'v': delay_time -= 10; LOGd(2, "delay: %d", delay_time); break;
-		case 'u': val += 10; LOGd(2, "val: %d", val); break;
-		case 'd': val -= 10; LOGd(2, "val: %d", val); break;
-		case 'i': val += 1; LOGd(2, "val: %d", val); break;
-		case 'k': val -= 1;	LOGd(2, "val: %d", val); break;
-		case 'w': id += 1; LOGd(2, "motor: %d", id); break;
-		case 's': id -= 1; LOGd(2, "motor: %d", id); break;
-		case 'p': print(); break;
-        case 't':
-        	digitalWrite(DIRECTION_RIGHT_FW, HIGH);
-			digitalWrite(DIRECTION_RIGHT_BW, LOW);
-		    analogWrite(PWM_RIGHT, 200);   //PWM Speed Control
-            break;
+		case 'o': sendData(); LOGi(1, ""); break;
+
+		case 'q': lastcommand = millis(); desiredLeftSpeed = 0; desiredRightSpeed = 0; break;
+		case 'e': curLeftSpeed = 0; curRightSpeed = 0; desiredLeftSpeed = 0; desiredRightSpeed = 0;	break;
+		case 'w': lastcommand = millis(); desiredLeftSpeed = 200; desiredRightSpeed = 200; break;
+		case 's': lastcommand = millis(); desiredLeftSpeed = -200; desiredRightSpeed = -200; break;
+		case 'a': lastcommand = millis(); desiredLeftSpeed = -100; desiredRightSpeed = 100; break;
+		case 'd': lastcommand = millis(); desiredLeftSpeed = 100; desiredRightSpeed = -100; break;
+
+		case 'f': flashLight(200); break;
+		case 'r': flashLight(0); break;
+
+		case '1': desiredSpeedMotor[0] = 200; break;
+		case '2': desiredSpeedMotor[0] = 0; break;
+		case '3': desiredSpeedMotor[0] = -200; break;
+		case '4': desiredSpeedMotor[1] = 200; break;  //pump; shouldnt work for now
+		case '5': desiredSpeedMotor[1] = 0; break;
+		case '6': desiredSpeedMotor[2] = -200; break;
+		case '7': desiredSpeedMotor[2] = 0; break;
+		case '8': desiredSpeedMotor[3] = -200; break;
+		case '9': desiredSpeedMotor[3] = 0; break;
+
+		case '0': stop(0); stop(1); stop(2); stop(3); break;
+
 		default: LOGd(1, "incoming: %c (%d)", incoming, incoming); break;
 	}
 }
 
-void handleInput() {
+void receiveCommands() {
 
-}
-
-void receiveCommands()
-{
-
-	// aJsonObject* item;
-	// if (serial_stream.available()) {
-	// 	item = aJson.parse(&serial_stream);
-
-	// 	if (item == NULL) {
-	// 		LOGd(0, "not a json object!");
-	// 		// handleInput();
-	// 		serial_stream.flush();
-	// 		return;
-	// 	}
-	// } else {
-	// 	return;
-	// }
-
-	// LOGd(3, "cmdReceived");
-
-	// // aJson.print(item, &serial_stream);
-	// // Serial.println(" ");
-
-	// switch(getType(item)) {
-	// 	case DRIVE_COMMAND:
-	// 		handleDriveCommand(item);
-	// 		break;
-	// 	case MOTOR_COMMAND:
-	// 		handleMotorCommand(item);
-	// 		break;
-	// 	case CONTROL_COMMAND:
-	// 		handleControlCommand(item);
-	// 		break;
-	// 	case DISCONNECT:
-	// 		handleDisconnect(item);
-	// 		break;
-	// 	case SENSOR_REQUEST:
-	// 		handleSensorRequest(item);
-	// 	default:
-	// }
-	// aJson.deleteItem(item);
-
+#ifdef DEBUG
 	if (Serial.available()) {
-	 int incoming = Serial.read();
-	 handleInput(incoming);
+		int incoming = Serial.read();
+		handleInput(incoming);
 	}
+	return;
 
 	// if (Serial2.available()) {
 	//  int incoming = Serial2.read();
 	//  LOGi(1, "serial2: %d", incoming);
 	//  handleInput(incoming);
 	// }
+#endif
+
+	 aJsonObject* item;
+	 if (serial_stream.available()) {
+	 	item = aJson.parse(&serial_stream);
+
+	 	if (item == NULL) {
+	 		LOGd(0, "not a json object!");
+	 		serial_stream.flush();
+	 		return;
+	 	}
+	 } else {
+	 	return;
+	 }
+
+	 LOGd(3, "cmdReceived");
+
+	 switch(getType(item)) {
+	 	case DRIVE_COMMAND:
+	 		handleDriveCommand(item);
+	 		break;
+	 	case MOTOR_COMMAND:
+	 		handleMotorCommand(item);
+	 		break;
+	 	case CONTROL_COMMAND:
+	 		handleControlCommand(item);
+	 		break;
+	 	case DISCONNECT:
+	 		handleDisconnect(item);
+	 		break;
+	 	case SENSOR_REQUEST:
+	 		handleSensorRequest(item);
+	 		break;
+	 	default:
+	 	break;
+	 }
+	 aJson.deleteItem(item);
+
 }
 
-void handleControlCommand(aJsonObject* json) {
+void handleControlCommand(aJsonObject* json) { ///TODO: remove?
 // is not necessary for now
 }
 
 void handleDisconnect(aJsonObject* json) {
 // is sent when the phone disconnects from the robot, best to turn off all motors here
-	drive(0, 0);
+
+	//bluntly put wheels to zero and wait for drive function to be called again
+	curLeftSpeed = 0;
+	curRightSpeed = 0;
+	desiredLeftSpeed = 0;
+	desiredRightSpeed = 0;
+
+    //also stop the other motors
     for (int i = 0; i < 4; ++i) {
-		setMotor(i, 0);
+		stop(i);
 	}
-    flashLight(0);
+
+    flashLight(0); //and the flashlight of course :-)
 }
 
 void handleSensorRequest(aJsonObject* json) {
@@ -444,12 +262,9 @@ void handleSensorRequest(aJsonObject* json) {
 
 void handleMotorCommand(aJsonObject* json) {
 	LOGd(3, "handleMotorCommand");
-	int id = -1, direction = -1, value = -1;
-	decodeMotorCommand(json, &id, &direction, &value);
-	secdrive(value, id);
-//  id is in case we want to control other mothers, currently a value of 1 is sent
-//  direction, either 0 or 1, where 1 is "forward"
-//  speed, a value between 0 and 255
+	int id = -1, value = -1;
+	decodeMotorCommand(json, &id, &value); //  motor id, speed value between -255 and 255
+	desiredSpeedMotor[id] = value;
 }
 
 void handleDriveCommand(aJsonObject* json) {
@@ -459,7 +274,145 @@ void handleDriveCommand(aJsonObject* json) {
 	lastcommand = millis();
 	desiredRightSpeed = capSpeed(rightSpeed);
 	desiredLeftSpeed = capSpeed(leftSpeed);
-	//drive(leftSpeed, rightSpeed);
+}
+
+// JSON message is of the format:
+// {"compass":{"heading":119.00000},"accelero":{"x":0.04712,"y":0.00049,"z":0.97757},"gyro":{"x":-0.39674,"y":-1.95318,"z":-1.65563}}
+
+void sendData() {
+
+	aJsonObject *json, *header, *data, *group, *sub, *item;
+
+	json = aJson.createObject();
+
+	header = aJson.createObject();
+	aJson.addNumberToObject(header, "id", HEADER);
+	aJson.addNumberToObject(header, "timestamp", msgCounter++);
+	aJson.addNumberToObject(header, "type", SENSOR_DATA);
+	aJson.addItemToObject(json, "header", header);
+
+	data = aJson.createObject();
+
+	// BUMPER
+	group = aJson.createObject();
+	aJson.addNumberToObject(group, "left", digitalRead(BUMPER1));
+	aJson.addNumberToObject(group, "right", digitalRead(BUMPER2));
+	aJson.addItemToObject(data, "bumper", group);
+
+	// COMPASS
+	group = aJson.createObject();
+	aJson.addNumberToObject(group, "heading", formatCompassValue(headingValue));
+	aJson.addItemToObject(data, "compass", group);
+
+	// ACCELERO
+	group = aJson.createObject();
+	aJson.addNumberToObject(group, "x", formatAcceleroValue(agValue[AX]));
+	aJson.addNumberToObject(group, "y", formatAcceleroValue(agValue[AY]));
+	aJson.addNumberToObject(group, "z", formatAcceleroValue(agValue[AZ]));
+	aJson.addItemToObject(data, "accelero", group);
+
+	// GYRO
+	group = aJson.createObject();
+	aJson.addNumberToObject(group, "x", formatGyroValue(agValue[GX]));
+	aJson.addNumberToObject(group, "y", formatGyroValue(agValue[GY]));
+	aJson.addNumberToObject(group, "z", formatGyroValue(agValue[GZ]));
+	aJson.addItemToObject(data, "gyro", group);
+
+	// ENCODER
+	group = aJson.createObject();
+    //Ticks can be changed in the interrupts and its a 2-byte value (most likely not atomic)
+    //Therefore disable the interrupts while sending the data here!
+    uint8_t SaveSREG = SREG;                                            // save interrupt flag
+    cli();                                                              // disable interrupts
+    aJson.addNumberToObject(group, "rightEncoder", _RightEncoderTicks); // access the shared data
+	aJson.addNumberToObject(group, "leftEncoder", _LeftEncoderTicks);   //
+    SREG = SaveSREG;                                                    // restore the interrupt flag
+	aJson.addItemToObject(data, "odom", group);
+
+	// WHEELS
+	group = aJson.createObject();
+
+	// .. LEFT
+	sub = aJson.createObject();
+	item = aJson.createObject();
+	aJson.addNumberToObject(item, "present", currentSenseLeft);
+	aJson.addNumberToObject(item, "peak", reportCSLeft);
+	aJson.addItemToObject(sub, "current", item);
+	aJson.addNumberToObject(sub, "speed", curLeftSpeed);
+	aJson.addItemToObject(group, "left", sub);
+
+	// .. RIGHT
+	sub = aJson.createObject();
+	item = aJson.createObject();
+	aJson.addNumberToObject(item, "present", currentSenseRight);
+	aJson.addNumberToObject(item, "peak", reportCSRight);
+	aJson.addItemToObject(sub, "current", item);
+	aJson.addNumberToObject(sub, "speed", curRightSpeed);
+	aJson.addItemToObject(group, "right", sub);
+
+	aJson.addItemToObject(data, "wheels", group);
+
+	// MOTORS
+	group = aJson.createObject();
+
+	// .. ELEVATOR
+	sub = aJson.createObject();
+	item = aJson.createObject();
+	aJson.addNumberToObject(item, "present", currentSenseMotor[ELEVATOR]);
+	aJson.addNumberToObject(item, "peak", reportCSMotor[ELEVATOR]);
+	aJson.addItemToObject(sub, "current", item);
+	aJson.addNumberToObject(sub, "speed", curSpeedMotor[ELEVATOR]);
+	aJson.addItemToObject(group, "elevator", sub);
+
+	// .. PUMP
+	sub = aJson.createObject();
+	item = aJson.createObject();
+	aJson.addNumberToObject(item, "present", currentSenseMotor[PUMP]);
+	aJson.addNumberToObject(item, "peak", reportCSMotor[PUMP]);
+	aJson.addItemToObject(sub, "current", item);
+	aJson.addNumberToObject(sub, "speed", curSpeedMotor[PUMP]);
+	aJson.addItemToObject(group, "pump", sub);
+
+	// .. VACUUM
+	sub = aJson.createObject();
+	item = aJson.createObject();
+	aJson.addNumberToObject(item, "present", currentSenseMotor[VACUUM]);
+	aJson.addNumberToObject(item, "peak", reportCSMotor[VACUUM]);
+	aJson.addItemToObject(sub, "current", item);
+	aJson.addNumberToObject(sub, "speed", curSpeedMotor[VACUUM]);
+	aJson.addItemToObject(group, "vacuum", sub);
+
+	// .. BRUSH
+	sub = aJson.createObject();
+	item = aJson.createObject();
+	aJson.addNumberToObject(item, "present", currentSenseMotor[BRUSH]);
+	aJson.addNumberToObject(item, "peak", reportCSMotor[BRUSH]);
+	aJson.addItemToObject(sub, "current", item);
+	aJson.addNumberToObject(sub, "speed", curSpeedMotor[BRUSH]);
+	aJson.addItemToObject(group, "brush", sub);
+
+	aJson.addItemToObject(data, "motors", group);
+
+	aJson.addItemToObject(json, "data", data);
+
+	aJson.print(json, &serial_stream);
+	Serial.println("");
+	aJson.deleteItem(json);
+}
+
+//*******************************************************************************
+// sensor functions
+
+void senseLeftRight() {
+	currentSenseLeft = analogRead(CURRENT_SENSE_LEFT);
+	currentSenseRight = analogRead(CURRENT_SENSE_RIGHT);
+	reportCSLeft = max(currentSenseLeft, reportCSLeft); // track maximum current sensed
+	reportCSRight = max(currentSenseRight, reportCSRight);
+}
+
+void senseMotor(int motor) {
+	currentSenseMotor[motor] = analogRead(CURRENT_SENSE_MOTORS[motor]);
+	reportCSMotor[motor] = max(reportCSMotor[motor], currentSenseMotor[motor]);
 }
 
 void readCompass() {
@@ -607,133 +560,11 @@ void HandleRightMotorInterruptA() {
     //LOGi(1, "interruptB %d", _RightEncoderTicks); ///be very careful with this line!
 }
 
-// JSON message is of the format:
-// {"compass":{"heading":119.00000},"accelero":{"x":0.04712,"y":0.00049,"z":0.97757},"gyro":{"x":-0.39674,"y":-1.95318,"z":-1.65563}}
+//***********************************************************************************
+//   actuator functions
 
-int msgCounter;
-void sendData() {
-
-	aJsonObject *json, *header, *data, *group, *sub, *item;
-
-	json = aJson.createObject();
-
-	header = aJson.createObject();
-	aJson.addNumberToObject(header, "id", HEADER);
-	aJson.addNumberToObject(header, "timestamp", msgCounter++);
-	aJson.addNumberToObject(header, "type", SENSOR_DATA);
-	aJson.addItemToObject(json, "header", header);
-
-	data = aJson.createObject();
-
-	///TODO: BUMPER
-	//group = aJson.createObject();
-	//aJson.
-
-	// COMPASS
-	group = aJson.createObject();
-	aJson.addNumberToObject(group, "heading", formatCompassValue(headingValue));
-	aJson.addItemToObject(data, "compass", group);
-
-	// ACCELERO
-	group = aJson.createObject();
-	aJson.addNumberToObject(group, "x", formatAcceleroValue(agValue[AX]));
-	aJson.addNumberToObject(group, "y", formatAcceleroValue(agValue[AY]));
-	aJson.addNumberToObject(group, "z", formatAcceleroValue(agValue[AZ]));
-	aJson.addItemToObject(data, "accelero", group);
-
-	// GYRO
-	group = aJson.createObject();
-	aJson.addNumberToObject(group, "x", formatGyroValue(agValue[GX]));
-	aJson.addNumberToObject(group, "y", formatGyroValue(agValue[GY]));
-	aJson.addNumberToObject(group, "z", formatGyroValue(agValue[GZ]));
-	aJson.addItemToObject(data, "gyro", group);
-
-	// ENCODER
-	group = aJson.createObject();
-    //Ticks can be changed in the interrupts and its a 2-byte value (most likely not atomic)
-    //Therefore disable the interrupts while sending the data here!
-    uint8_t SaveSREG = SREG;                                            // save interrupt flag
-    cli();                                                              // disable interrupts
-    aJson.addNumberToObject(group, "rightEncoder", _RightEncoderTicks); // access the shared data
-	aJson.addNumberToObject(group, "leftEncoder", _LeftEncoderTicks);   //
-    SREG = SaveSREG;                                                    // restore the interrupt flag
-	aJson.addItemToObject(data, "odom", group);
-
-	// WHEELS
-	group = aJson.createObject();
-
-	// .. LEFT
-	sub = aJson.createObject();
-	item = aJson.createObject();
-	aJson.addNumberToObject(item, "present", currentSenseLeft);
-	aJson.addNumberToObject(item, "peak", reportCSLeft);
-	aJson.addItemToObject(sub, "current", item);
-	aJson.addNumberToObject(sub, "speed", curLeftSpeed);
-	aJson.addItemToObject(group, "left", sub);
-
-	// .. RIGHT
-	sub = aJson.createObject();
-	item = aJson.createObject();
-	aJson.addNumberToObject(item, "present", currentSenseRight);
-	aJson.addNumberToObject(item, "peak", reportCSRight);
-	aJson.addItemToObject(sub, "current", item);
-	aJson.addNumberToObject(sub, "speed", curRightSpeed);
-	aJson.addItemToObject(group, "right", sub);
-
-	aJson.addItemToObject(data, "wheels", group);
-
-	// MOTORS
-	group = aJson.createObject();
-
-	// .. ELEVATOR
-	sub = aJson.createObject();
-	item = aJson.createObject();
-	aJson.addNumberToObject(item, "present", currentSenseMotor[ELEVATOR]);
-	aJson.addNumberToObject(item, "peak", reportCSMotor[ELEVATOR]);
-	aJson.addItemToObject(sub, "current", item);
-	aJson.addNumberToObject(sub, "speed", curSpeedMotor[ELEVATOR]);
-	aJson.addItemToObject(group, "elevator", sub);
-
-	// .. PUMP
-	sub = aJson.createObject();
-	item = aJson.createObject();
-	aJson.addNumberToObject(item, "present", currentSenseMotor[PUMP]);
-	aJson.addNumberToObject(item, "peak", reportCSMotor[PUMP]);
-	aJson.addItemToObject(sub, "current", item);
-	aJson.addNumberToObject(sub, "speed", curSpeedMotor[PUMP]);
-	aJson.addItemToObject(group, "pump", sub);
-
-	// .. VACUUM
-	sub = aJson.createObject();
-	item = aJson.createObject();
-	aJson.addNumberToObject(item, "present", currentSenseMotor[VACUUM]);
-	aJson.addNumberToObject(item, "peak", reportCSMotor[VACUUM]);
-	aJson.addItemToObject(sub, "current", item);
-	aJson.addNumberToObject(sub, "speed", curSpeedMotor[VACUUM]);
-	aJson.addItemToObject(group, "vacuum", sub);
-
-	// .. BRUSH
-	sub = aJson.createObject();
-	item = aJson.createObject();
-	aJson.addNumberToObject(item, "present", currentSenseMotor[BRUSH]);
-	aJson.addNumberToObject(item, "peak", reportCSMotor[BRUSH]);
-	aJson.addItemToObject(sub, "current", item);
-	aJson.addNumberToObject(sub, "speed", curSpeedMotor[BRUSH]);
-	aJson.addItemToObject(group, "brush", sub);
-
-	aJson.addItemToObject(data, "motors", group);
-
-	aJson.addItemToObject(json, "data", data);
-
-	aJson.print(json, &serial_stream);
-	Serial.println("");
-	aJson.deleteItem(json);
-}
-
-
-// actuator functions
-void drive()
-{
+// driver function for wheels
+void drive() {
 	//first check current sensors and tune down desired speed if current is too high
 	senseLeftRight();
 	if ( (currentSenseLeft > CURRENT_LIMIT_DRIVE) || (currentSenseRight > CURRENT_LIMIT_DRIVE) )
@@ -769,7 +600,7 @@ void drive()
 
 	//So far so good, move closer to desired speed
 	if (desiredRightSpeed < curRightSpeed) {
-		curRightSpeed--;   ///TODO: make this proportional in a neat way, to allow making turns better
+		curRightSpeed--;
 	} else if (desiredRightSpeed > curRightSpeed) {
 		curRightSpeed++;
 	}
@@ -812,230 +643,85 @@ void drive()
 
 }
 
-// actuator functions
+//driver function for lift, brush and vacuum pump
+void secdrive(int motor) {
+	LOGd(2, "secdrive(%d, %d)",	motor);
 
-void drive(int leftSpeed, int rightSpeed) {
-	int count = 0;
-	int incidentcount = 0;
+	if ((motor < 1) || (motor > 4)) return; //other motors dont exist, so return immediately
+	if (motor == 2) return; //the water pump probably needs a seperate driver function due to its AC nature
 
-	// int curLeftSpeed = 0;
-	// int curRightSpeed =
+	int motor_id = motor - 1;
 
-	leftSpeed = capSpeed(leftSpeed);
-	rightSpeed = capSpeed(rightSpeed);
-
-	LOGd(2, "drive(%d, %d)",
-		leftSpeed, rightSpeed);
-
-	drive_access = true;
-
-	while ((incidentcount < MAX_INCIDENT_COUNT) &&
-		   ((curLeftSpeed != capSpeed(leftSpeed)) ||
-		   	(curRightSpeed != capSpeed(rightSpeed))))
-    {
-		senseLeftRight();
-
-		//Serial.print("currentSenseLeft :");Serial.println(currentSenseLeft);
-		//Serial.print("currentSenseRight :");Serial.println(currentSenseRight);
-		if ( (currentSenseLeft < CURRENT_LIMIT_DRIVE) ) { // check for current
-			if (leftSpeed < curLeftSpeed) {
-				curLeftSpeed--;
-			} else if (leftSpeed > curLeftSpeed) {
-				curLeftSpeed++;
-			}
-		}
-		else {
-			if (leftSpeed < curLeftSpeed) {
-				curLeftSpeed++;
-			} else if (leftSpeed > curLeftSpeed) {
-				curLeftSpeed--;
-			}
-			incidentcount++;
-			if (incidentcount > MAX_INCIDENT_COUNT) {
-				curRightSpeed = 0; // reset speed
-				curLeftSpeed = 0;
-			}
-		}
-
-		if ( (currentSenseRight < CURRENT_LIMIT_DRIVE) ) { // check for current
-			if (rightSpeed < curRightSpeed) {
-				curRightSpeed--;
-			} else if (rightSpeed > curRightSpeed) {
-				curRightSpeed++;
-			}
-		}
-		else {
-			if (rightSpeed < curRightSpeed) {
-				curRightSpeed++;
-			} else if (rightSpeed > curRightSpeed) {
-				curRightSpeed--;
-			}
-			incidentcount++;
-			if (incidentcount > MAX_INCIDENT_COUNT) {
-				curRightSpeed = 0; // reset speed
-				curLeftSpeed = 0;
-			}
-		}
-		// Serial.print("Count :");Serial.println(count);
-
-		curLeftSpeed = capSpeed(curLeftSpeed);
-		curRightSpeed = capSpeed(curRightSpeed);
-
-		if (curLeftSpeed > 0) {
-			digitalWrite(DIRECTION_LEFT_FW, HIGH);
-			digitalWrite(DIRECTION_LEFT_BW, LOW);
-		} else if (curLeftSpeed < 0) {
-			digitalWrite(DIRECTION_LEFT_FW, LOW);
-			digitalWrite(DIRECTION_LEFT_BW, HIGH);
-		} else {
-			digitalWrite(DIRECTION_LEFT_FW, LOW);
-			digitalWrite(DIRECTION_LEFT_BW, LOW);
-		}
-
-		if (curRightSpeed > 0) {
-			digitalWrite(DIRECTION_RIGHT_FW, HIGH);
-			digitalWrite(DIRECTION_RIGHT_BW, LOW);
-		} else if (curRightSpeed < 0) {
-			digitalWrite(DIRECTION_RIGHT_FW, LOW);
-			digitalWrite(DIRECTION_RIGHT_BW, HIGH);
-		} else {
-			digitalWrite(DIRECTION_RIGHT_FW, LOW);
-			digitalWrite(DIRECTION_RIGHT_BW, LOW);
-		}
-
-		analogWrite(PWM_LEFT, abs(curLeftSpeed));   //PWM Speed Control
-		analogWrite(PWM_RIGHT, abs(curRightSpeed));   //PWM Speed Control
-
-		LOGd(3, "left: %d, right: %d, senseLeft: %d, senseRight: %d",
-			curLeftSpeed, curRightSpeed, currentSenseLeft, currentSenseRight);
-
-		delay(delay_time);
-
+	//first check current sensor and tune down desired speed if current is too high
+	senseMotor(motor_id);
+	if (currentSenseMotor[motor_id] > CURRENT_LIMIT_MOTORS[motor_id])
+	{
+		desiredSpeedMotor[motor_id] = desiredSpeedMotor[motor_id] * 0.8;
+		pushMotorIncident(motor_id);
 	}
 
-	drive_access = false;
+	//secondly, check if too many incidents recently, and if so, refuse to move
+	unsigned long time = millis();
+	unsigned long incidentDifference = time - motorIncidents[motor_id][MAX_INCIDENT_COUNT - 1];
+		//differences should underflow when time overflowed
+
+	//time should be bigger than INCIDENTTIMEOUT b/c incidents are initialized to 0
+	//also note that outliers are ignored implicitly here: one incident doesnt do much at all
+	if ((time > INCIDENT_TIMEOUT) && (incidentDifference < INCIDENT_TIMEOUT))
+	{
+		//bluntly put everything to zero
+		desiredSpeedMotor[motor_id] = 0;
+		curSpeedMotor[motor_id] = 0;
+	}
+
+	//ok, now move closer to desired speed
+	if (desiredSpeedMotor[motor_id] < curSpeedMotor[motor_id]) {
+		curSpeedMotor[motor_id]--;
+	} else if (desiredSpeedMotor[motor_id] > curSpeedMotor[motor_id]) {
+		curSpeedMotor[motor_id]++;
+	}
+
+	setMotor(motor_id);
+
+	LOGd(3, "curSpeed: %d, sense: %d, report: %d",
+		curSpeedMotor[motor_id], currentSenseMotor[motor_id], reportCSMotor[motor_id]);
 
 }
 
+void setMotor(int motor_id) {
 
-void setMotor(int id, int value) {
-	curSpeedMotor[id] = value;
-	if (MOTOR_INVERTED[id]) {
-		value = 255 - abs(value);
+	if (curSpeedMotor[motor_id] > 0) {   //set the direction of the motor
+		digitalWrite(DIRECTION_MOTORS[motor_id], HIGH);
+	} else {
+		digitalWrite(DIRECTION_MOTORS[motor_id], LOW);
 	}
-	analogWrite(PWM_MOTORS[id], abs(value));
 
+	if (MOTOR_INVERTED[motor_id]) {      //set the PWM signal, taking into account inversion circuits
+		analogWrite(PWM_MOTORS[motor_id], 255 - abs(curSpeedMotor[motor_id]));
+	} else {
+		analogWrite(PWM_MOTORS[motor_id], abs(curSpeedMotor[motor_id]));
+	}
 }
 
-void stop(int motor) {
+void stop(int motor_id) {
 
-	if ((motor < 1) || (motor > 4))
-		return;
+	if ((motor_id < 1) || (motor_id > 4)) return;
+	curSpeedMotor[motor_id] = 0;
+	desiredSpeedMotor[motor_id] = 0;
+	setMotor(motor_id);
+}
 
-	int motor_id = motor -1;
-
-	// curSpeedMotor[motor_id] = 0;
-	// analogWrite(PWM_MOTORS[motor_id], 0);   //PWM Speed Control
-	setMotor(motor_id, 0);
+int capSpeed(int value) {
+    return max(min(value,249),-249);
 }
 
 void flashLight(int speed) {
 	analogWrite(FLASH_LIGHT, speed);
 }
 
-//driver function for one motor
-void secdrive(int value,int motor)
-{
-	LOGd(2, "secdrive(%d, %d)",
-		motor, value);
-
-	int count = 0;
-	int incidentcount = 0;
-
-	int motorPin;
-	int motorPin1;
-	int motorPin2;
-	int enablePin;
-
-	int currentSensePin;
-	int pwmPin;
-	int directionPin;
-
-	int *curSpeed = NULL;
-	int *sense = NULL;
-	int *report = NULL;
-
-	if ((motor < 1) || (motor > 4))
-		return;
-
-	int motor_id = motor -1;
-
-	pwmPin = PWM_MOTORS[motor_id];
-	directionPin = DIRECTION_MOTORS[motor_id];
-	currentSensePin = CURRENT_SENSE_MOTORS[motor_id];
-
-	curSpeed = &(curSpeedMotor[motor_id]);
-	sense = &(currentSenseMotor[motor_id]);
-	report = &(reportCSMotor[motor_id]);
-
-	motor_access[motor_id] = true;
-
-	while ((incidentcount < MAX_INCIDENT_COUNT) && (*curSpeed != capSpeed(value))) {
-		senseMotor(motor_id);
-
-		if ( (*sense < CURRENT_LIMIT_MOTORS[motor_id]) ) { // check for current
-			if (value < *curSpeed) {
-				(*curSpeed)--;
-			} else {
-				(*curSpeed)++;
-			}
-		}
-		else {
-			if (value < *curSpeed) {
-				(*curSpeed)++;
-			} else {
-				(*curSpeed)--;
-			}
-			incidentcount++;
-			if (incidentcount > MAX_INCIDENT_COUNT) {
-						// *curSpeed = 0; // reset speed
-						// analogWrite(pwmPin, abs(*curSpeed));
-				setMotor(motor_id, *curSpeed);
-				return;
-			}
-		}
-
-		*curSpeed = capSpeed(*curSpeed);
-
-		if (*curSpeed > 0) {
-			digitalWrite(directionPin, HIGH);
-		} else {
-			digitalWrite(directionPin, LOW);
-		}
-
-		// analogWrite(pwmPin, abs(*curSpeed));   //PWM Speed Control
-		setMotor(motor_id, *curSpeed);
-
-		LOGd(3, "pin: %d, curSpeed: %d, sense: %d, report: %d",
-			pwmPin, *curSpeed, *sense, *report);
-
-		delay(delay_time);
-	}
-
-	motor_access[motor_id] = false;
-	LOGd(2, "done");
-
-}
-
-
-
 
 //******************************************************************
 // helper functions
-
-int capSpeed(int value) {
-    return max(min(value,249),-249);
-}
 
 void pushFront(int val, int* valueList, int len) {
 	for (int i = len-2; i >= 0; i--)
@@ -1051,6 +737,15 @@ void pushIncident() {
 		incidents[i + 1] = incidents[i];
 	}
 	incidents[0] = millis();
+}
+
+void pushMotorIncident(int motor_id) {
+	for (int i = MAX_INCIDENT_COUNT - 2; i >= 0; i-- )
+	{
+		motorIncidents[motor_id][i + 1] = motorIncidents[motor_id][i];
+	}
+	motorIncidents[motor_id][0] = millis();
+
 }
 
 float formatAcceleroValue(int value) {
@@ -1093,6 +788,10 @@ void resetSensors() {
 	for (int i = 0; i < MAX_INCIDENT_COUNT; i++)
 	{
 		incidents[i] = 0;
+		for (int j = 0; j < 4; j++)
+		{
+			motorIncidents[j][i] = 0;
+		}
 	}
 
 }
@@ -1113,14 +812,11 @@ int getType(aJsonObject* json) {
 	return type->valueint;
 }
 
-void decodeMotorCommand(aJsonObject* json, int* motor_id, int* direction, int* speed) {
+void decodeMotorCommand(aJsonObject* json, int* motor_id, int* speed) {
 	aJsonObject* data = aJson.getObjectItem(json, "data");
 
 	aJsonObject* motor_id_j = aJson.getObjectItem(data, "motor_id");
 	*motor_id = motor_id_j->valueint;
-
-	aJsonObject* direction_j = aJson.getObjectItem(data, "direction");
-	*direction = direction_j->valueint;
 
 	aJsonObject* speed_j = aJson.getObjectItem(data, "speed");
 	*speed = speed_j->valueint;
@@ -1136,8 +832,61 @@ void decodeDriveCommand(aJsonObject* json, int* left, int* right) {
 	*right = right_j->valueint;
 }
 
-void print() {
-	LOGd(3, "motor: %d, val: %d, speed: %d, delay: %d, interval: %d, on interval: %d",
-		id, val, speed, delay_time, interval, oncount);
+//****************************************************************
+//  TODO
+
+/* TODO: make pump work
+int oncount = 5;
+int interval = 100;
+
+int count = 0;
+
+boolean on = false;
+boolean run = false;
+boolean lastOn = false;
+boolean log_sense = true;
+
+void reset() {
+	oncount = 5;
+	interval = 100;
+	count = 0;
+	run = false;
+	on = false;
+	lastOn = false;
+	log_sense = true;
 }
 
+void timerCB() {
+	if (run) {
+		count++;
+		if (count <= oncount) {
+			on = true;
+		} else {
+			on = false;
+			if (count == interval) {
+				count = 0;
+				log_sense = true;
+			}
+		}
+
+		if (lastOn != on) {
+			LOGi(1, "on %d at %d", on, millis());
+			digitalWrite(PWM_MOTORS[1], on ? HIGH : LOW);
+		}
+		lastOn = on;
+
+		if (on && log_sense) {
+			senseMotor(1);
+
+			LOGd(3, "sense %d",
+				currentSenseMotor[1]);
+
+			log_sense = false;
+		} else {
+			log_sense = true;
+		}
+	} else {
+		digitalWrite(PWM_MOTORS[1], LOW);
+	}
+}
+*/

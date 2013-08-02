@@ -3,8 +3,11 @@
 TODO
 
 *check on wheel encoder overflow
-*make pump work!
-*dont get stuck in drive loops so long (and afterwards, clean up timer interrupt cause its quite long now)
+*make wheel driver function proportional to allow for turns from standing still
+   (instead of adding 1 to the current speed every loop)
+*seperate motor incident parameters per motor
+*make pump work! (write a seperate driver function for it? perhaps use timer?)
+*get bumpers on interrupts (may require a uc with more interrupts ;-)
 
 */
 
@@ -51,12 +54,16 @@ A10 and A11 free
 A12 to A15 current sensing additional motors (A, B, C, D; elevator, pump, vacuum, brush respectively)
 
 *****************************************/
-
-
+#include "Arduino.h"
+#include "Wire.h"
 #include "aJSON.h"
 #include "MPU6050.h"
+#include "TimerOne.h"
+#include "log.h"
+//#include "digitalWriteFast.h"  //could be used to improve performance
 
-// messages
+
+// message constants
 #define HEADER 0xA5
 
 #define SENSOR_DATA 0
@@ -71,13 +78,7 @@ A12 to A15 current sensing additional motors (A, B, C, D; elevator, pump, vacuum
 #define STRING_T 2
 #define BOOL_T 3
 
-// other constants
-
-#define OUTLIER_CHECKS 10
-#define OUTLIER_THRESHOLD 5
-
 //// motors
-
 #define ELEVATOR 0 //these numbers + 1 is how they are used in the cpp file
 #define PUMP 1
 #define VACUUM 2
@@ -95,18 +96,10 @@ int PWM_MOTORS[4] = {PWM_A, PWM_B, PWM_C, PWM_D};
 #define CURRENT_SENSE_D A15
 int CURRENT_SENSE_MOTORS[4] = {CURRENT_SENSE_A, CURRENT_SENSE_B, CURRENT_SENSE_C, CURRENT_SENSE_D};
 
-#define DIRECTION_A 45  // elevator
-						// + direction -> UP
-						// - direction -> DOWN
+#define DIRECTION_A 45  // elevator, + direction -> UP, - direction -> DOWN
 #define DIRECTION_B 44	// pump
-						// + direction
-						// - direction
-#define DIRECTION_C 47	// vacuum
-						// + direction -> blowing
-						// - direction -> sucking -> OK
-#define DIRECTION_D 46 	// brush
-						// - direction -> OK
-						// + direction -> wrong
+#define DIRECTION_C 47	// vacuum, both directions ok
+#define DIRECTION_D 46 	// brush, - direction -> OK, + direction -> wrong
 int DIRECTION_MOTORS[4] = {DIRECTION_A, DIRECTION_B, DIRECTION_C, DIRECTION_D};
 
 #define CURRENT_LIMIT_A 1000
@@ -117,25 +110,21 @@ int CURRENT_LIMIT_MOTORS[4] = {CURRENT_LIMIT_A, CURRENT_LIMIT_B, CURRENT_LIMIT_C
 
 bool MOTOR_INVERTED[4] = {false, true, true, true};
 
-//// wheels
-
+//// wheel motors
 #define PWM_LEFT 8
 #define PWM_RIGHT 9
 #define DIRECTION_LEFT_FW 27
 #define DIRECTION_LEFT_BW 29
 #define DIRECTION_RIGHT_FW 25
 #define DIRECTION_RIGHT_BW 23
-
 #define CURRENT_SENSE_LEFT A0
 #define CURRENT_SENSE_RIGHT A2
-
 #define CURRENT_LIMIT_DRIVE 1000
 #define COMMAND_TIMEOUT 10000    ///TODO: set this to 500ms or so for use with ROS
 #define INCIDENT_TIMEOUT 5000
 #define MAX_INCIDENT_COUNT 50
 
 //// flash light
-
 #define FLASH_LIGHT 10
 
 //// bumper
@@ -171,39 +160,48 @@ bool MOTOR_INVERTED[4] = {false, true, true, true};
 //volatile bool _LeftEncoderBSet;
 
 
+////////////////////////////////
 void setup();
 void loop();
 
-void timerCallback();
+//communication
 void receiveCommands();
 void handleControlCommand(aJsonObject* json);
 void handleDisconnect(aJsonObject* json);
 void handleMotorCommand(aJsonObject* json);
 void handleDriveCommand(aJsonObject* json);
 void handleSensorRequest(aJsonObject* json);
+void sendData();
+void handleInput(int incoming);
+
+//sensors
+void senseMotor(int motor);
+void senseLeftRight();
 void readCompass();
 void readAG();
 void HandleLeftMotorInterruptA();
 void HandleRightMotorInterruptA();
-void sendData();
+
+//actuators
 void drive();
-void drive(int leftSpeed, int rightSpeed);
-void secdrive(int value,int motor);
+void secdrive(int motor);
 int capSpeed(int value);
+void flashLight(int speed);
+void setMotor(int motor_id);
+void stop(int motor);
+
+//helper functions
 void pushFront(int val, int* valueList, int len);
 void pushIncident();
+void pushMotorIncident(int motor_id);
 float formatAcceleroValue(int value);
 float formatGyroValue(int value);
 float formatCompassValue(int value);
 void resetSensors();
 int getType(aJsonObject* json);
-void decodeMotorCommand(aJsonObject* json, int* motor_id, int* direction, int* speed);
+void decodeMotorCommand(aJsonObject* json, int* motor_id, int* speed);
 void decodeDriveCommand(aJsonObject* json, int* left, int* right);
-void flashLight(int speed);
-void stop(int motor);
-void senseMotor(int motor);
-void senseLeftRight();
-void print();
-void setMotor(int id, int value);
-void handleInput();
-void timerCB();
+
+//TODO (pump)
+//void reset();  //todo: pump functions
+//void timerCB();
