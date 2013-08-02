@@ -2,7 +2,7 @@
 
 TODO
 
-*check encoder code & high values vacuum and brush currents
+*check whether encoders/code are still worker
 *check on wheel encoder overflow
 *make wheel driver function proportional to allow for turns from standing still
    (instead of adding 1 to the current speed every loop)
