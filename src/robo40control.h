@@ -2,7 +2,7 @@
 
 TODO
 
-*introduce variable for motor direction inversion
+*devise a more sensible way of returning data in debug mode
 *check on wheel encoder overflow
 *make wheel driver function proportional to allow for turns from standing still
    (instead of adding 1 to the current speed every loop)

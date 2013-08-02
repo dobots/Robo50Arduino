@@ -134,8 +134,7 @@ void setup() {
 	LOGd(1, "ready");
 }
 
-void loop()
-{
+void loop() {
 
 	receiveCommands();							//talky talky
 
