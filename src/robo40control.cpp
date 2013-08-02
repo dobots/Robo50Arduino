@@ -690,7 +690,8 @@ void secdrive(int motor) {
 
 void setMotor(int motor_id) {
 
-	if (curSpeedMotor[motor_id] > 0) {   //set the direction of the motor
+	if (((curSpeedMotor[motor_id] > 0) && (!DIRECTION_INVERTED[motor_id])) ||
+		((curSpeedMotor[motor_id] < 0) && DIRECTION_INVERTED[motor_id]) ) {   //set the direction of the motor
 		digitalWrite(DIRECTION_MOTORS[motor_id], HIGH);
 	} else {
 		digitalWrite(DIRECTION_MOTORS[motor_id], LOW);

@@ -2,6 +2,7 @@
 
 TODO
 
+*introduce variable for motor direction inversion
 *check on wheel encoder overflow
 *make wheel driver function proportional to allow for turns from standing still
    (instead of adding 1 to the current speed every loop)
@@ -101,6 +102,7 @@ int CURRENT_SENSE_MOTORS[4] = {CURRENT_SENSE_A, CURRENT_SENSE_B, CURRENT_SENSE_C
 #define DIRECTION_C 47	// vacuum, both directions ok
 #define DIRECTION_D 46 	// brush, - direction -> OK, + direction -> wrong
 int DIRECTION_MOTORS[4] = {DIRECTION_A, DIRECTION_B, DIRECTION_C, DIRECTION_D};
+bool DIRECTION_INVERTED[4] = {false, false, true, true};
 
 #define CURRENT_LIMIT_A 1000
 #define CURRENT_LIMIT_B 1000
