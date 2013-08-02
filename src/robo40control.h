@@ -25,8 +25,8 @@ TODO
 10 flashlight
 11 free (PWM)
 12 and 13 free (PWM)
-14 and 15 free (serial channel)
-16 and 17 are reserved for bluetooth (serial channel)
+14 and 15 are reserved for bluetooth (serial channel)
+16 and 17 free (serial channel)
 18 and 19 encoder interrupts
 20 and 21 for I2C Wire library
 22 free

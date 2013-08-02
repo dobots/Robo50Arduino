@@ -113,10 +113,10 @@ void setup() {
 	// connection to compass, uses pins 20 and 21
 	Wire.begin();
 
-	// connect to bluetooth, uses pin 16 and 17
-	//Serial2.begin(115200);
-	//Serial2.flush();
-	//Serial2.setTimeout(10);
+	// connect to bluetooth, uses pin 14 and 15
+	//Serial3.begin(115200);
+	//Serial3.flush();
+	//Serial3.setTimeout(10);
 
 	// setup compass
 	// Shift the device's documented slave address (0x42) 1 bit right
@@ -188,9 +188,9 @@ void receiveCommands() {
 	}
 	return;
 
-	// if (Serial2.available()) {
-	//  int incoming = Serial2.read();
-	//  LOGd(1, "serial2: %d", incoming);
+	// if (Serial3.available()) {
+	//  int incoming = Serial3.read();
+	//  LOGd(1, "serial3: %d", incoming);
 	//  handleInput(incoming);
 	// }
 #endif
