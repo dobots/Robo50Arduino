@@ -30,8 +30,8 @@ int curLeftSpeed = 0;
 int curRightSpeed = 0;
 int desiredLeftSpeed = 0;
 int desiredRightSpeed = 0;
-int lastDirectionLeft = 0;
-int lastDirectionRight = 0;
+char lastDirectionLeft = 0;  //char to make sure operations on it are atomic
+char lastDirectionRight = 0;
 int currentSenseLeft = 0;
 int currentSenseRight = 0;
 int reportCSLeft = 0;
@@ -151,7 +151,7 @@ void loop() {
 
 void handleInput(int incoming) {
 	switch(incoming) {
-		case 'o': sendData(); LOGi(1, ""); break;
+		case 'o': sendData(); LOGd(1, ""); break;
 
 		case 'q': lastcommand = millis(); desiredLeftSpeed = 0; desiredRightSpeed = 0; break;
 		case 'e': curLeftSpeed = 0; curRightSpeed = 0; desiredLeftSpeed = 0; desiredRightSpeed = 0;	break;
@@ -168,9 +168,9 @@ void handleInput(int incoming) {
 		case '3': desiredSpeedMotor[0] = -200; break;
 		case '4': desiredSpeedMotor[1] = 200; break;  //pump; shouldnt work for now
 		case '5': desiredSpeedMotor[1] = 0; break;
-		case '6': desiredSpeedMotor[2] = -200; break;
+		case '6': desiredSpeedMotor[2] = 255; break;
 		case '7': desiredSpeedMotor[2] = 0; break;
-		case '8': desiredSpeedMotor[3] = -200; break;
+		case '8': desiredSpeedMotor[3] = 255; break;
 		case '9': desiredSpeedMotor[3] = 0; break;
 
 		case '0': stop(0); stop(1); stop(2); stop(3); break;
@@ -190,7 +190,7 @@ void receiveCommands() {
 
 	// if (Serial2.available()) {
 	//  int incoming = Serial2.read();
-	//  LOGi(1, "serial2: %d", incoming);
+	//  LOGd(1, "serial2: %d", incoming);
 	//  handleInput(incoming);
 	// }
 #endif
@@ -263,7 +263,7 @@ void handleMotorCommand(aJsonObject* json) {
 	LOGd(3, "handleMotorCommand");
 	int id = -1, value = -1;
 	decodeMotorCommand(json, &id, &value); //  motor id, speed value between -255 and 255
-	desiredSpeedMotor[id] = value;
+	desiredSpeedMotor[id] = capSpeed(value);
 }
 
 void handleDriveCommand(aJsonObject* json) {
@@ -494,16 +494,6 @@ void readAG() {
 
 // Interrupt service routines for the left motor's quadrature encoder
 void HandleLeftMotorInterruptA() {
-	if (curLeftSpeed > 0)
-    {
-        lastDirectionLeft = 1;
-    }
-    else if (curLeftSpeed < 0)
-    {
-        lastDirectionLeft = -1;
-    }
-
-    if (lastDirectionLeft == 0) return; //early exit because we dont know in which direction we go yet
 
     #ifdef LeftEncoderIsReversed
         _LeftEncoderTicks -= lastDirectionLeft;
@@ -521,23 +511,10 @@ void HandleLeftMotorInterruptA() {
 	//#else
 	//  _LeftEncoderTicks += _LeftEncoderBSet ? -1 : +1;
 	//#endif
-
-    //LOGi(1, "interruptA %d", _LeftEncoderTicks);  ///be very careful with this line!
-
 }
 
 // Interrupt service routines for the right motor's quadrature encoder
 void HandleRightMotorInterruptA() {
-    if (curRightSpeed > 0)
-    {
-        lastDirectionRight = 1;
-    }
-    else if (curRightSpeed < 0)
-    {
-        lastDirectionRight = -1;
-    }
-
-    if (lastDirectionRight == 0) return; //early exit because we dont know in which direction we go
 
     #ifdef RightEncoderIsReversed
         _RightEncoderTicks -= lastDirectionRight;
@@ -555,8 +532,6 @@ void HandleRightMotorInterruptA() {
 	//#else
 	//  _RightEncoderTicks += _RightEncoderBSet ? -1 : +1;
 	//#endif
-
-    //LOGi(1, "interruptB %d", _RightEncoderTicks); ///be very careful with this line!
 }
 
 //***********************************************************************************
@@ -573,7 +548,7 @@ void drive() {
 		desiredLeftSpeed = desiredLeftSpeed * 0.8;
 
 		pushIncident(); //store incident
-		//LOGd(2, "Too much current in one of the wheels: %d, %d", currentSenseLeft, currentSenseRight);
+		LOGd(2, "Too much current in one of the wheels: %d, %d", currentSenseLeft, currentSenseRight);
 	}
 
 	//secondly, check if desiredspeed received too long ago, or too many incidents recently, and if so, refuse to move
@@ -592,9 +567,9 @@ void drive() {
 		desiredLeftSpeed = 0;
 		desiredRightSpeed = 0;
 
-		//LOGi(1, "Wheel speed set to zero due to problem: no commands or too many incidents!");
-		//LOGd(3, "senseLeft: %d, senseRight: %d", currentSenseLeft, currentSenseRight);
-		//LOGd(3, "last command received: %d, now: %d", lastcommand, time);
+		LOGd(1, "Wheel speed set to zero due to problem: no commands or too many incidents!");
+		LOGd(3, "senseLeft: %d, senseRight: %d", currentSenseLeft, currentSenseRight);
+		LOGd(3, "last command received: %d, now: %d", lastcommand, time);
 	}
 
 	//So far so good, move closer to desired speed
@@ -623,20 +598,37 @@ void drive() {
 		if (desiredRightSpeed > 0) desiredRightSpeed = 0;
 		if (desiredLeftSpeed > 0) desiredLeftSpeed = 0;
 
-		//LOGi(2,"Bumper pressed, only allowing backwards movement!");
+		LOGd(2,"Bumper pressed, only allowing backwards movement!");
 	}
 
-	if (curLeftSpeed > 0) digitalWrite(DIRECTION_LEFT_FW, HIGH); else digitalWrite(DIRECTION_LEFT_FW, LOW);
-	if (curLeftSpeed < 0) digitalWrite(DIRECTION_LEFT_BW, HIGH); else digitalWrite(DIRECTION_LEFT_BW, LOW);
+	if (curLeftSpeed > 0) {
+		digitalWrite(DIRECTION_LEFT_FW, HIGH);
+		lastDirectionLeft = 1; //to let the encoder know which way we're going
+	} else {
+		digitalWrite(DIRECTION_LEFT_FW, LOW);
+	}
+	if (curLeftSpeed < 0) {
+		digitalWrite(DIRECTION_LEFT_BW, HIGH);
+		lastDirectionLeft = -1; //to let the encoder know which way we're going
+	} else {
+		digitalWrite(DIRECTION_LEFT_BW, LOW);
+	}
 
-	if (curRightSpeed > 0) digitalWrite(DIRECTION_RIGHT_FW, HIGH); else digitalWrite(DIRECTION_RIGHT_FW, LOW);
-	if (curRightSpeed < 0) digitalWrite(DIRECTION_RIGHT_BW, HIGH); else digitalWrite(DIRECTION_RIGHT_BW, LOW);
+	if (curRightSpeed > 0) {
+		digitalWrite(DIRECTION_RIGHT_FW, HIGH);
+		lastDirectionRight = 1; //to let the encoder know which way we're going
+	} else {
+		digitalWrite(DIRECTION_RIGHT_FW, LOW);
+	}
+	if (curRightSpeed < 0) {
+		digitalWrite(DIRECTION_RIGHT_BW, HIGH);
+		lastDirectionRight = -1; //to let the encoder know which way we're going
+	} else {
+		digitalWrite(DIRECTION_RIGHT_BW, LOW);
+	}
 
 	analogWrite(PWM_LEFT, abs(curLeftSpeed));   //PWM Speed Control
 	analogWrite(PWM_RIGHT, abs(curRightSpeed));   //PWM Speed Control
-
-	//LOGd(3, "left: %d, right: %d, senseLeft: %d, senseRight: %d",
-	//		curLeftSpeed, curRightSpeed, currentSenseLeft, currentSenseRight);
 
 	return;
 
@@ -644,7 +636,7 @@ void drive() {
 
 //driver function for lift, brush and vacuum pump
 void secdrive(int motor) {
-	LOGd(2, "secdrive(%d, %d)",	motor);
+	//LOGd(2, "secdrive(%d, %d)",	motor);
 
 	if ((motor < 1) || (motor > 4)) return; //other motors dont exist, so return immediately
 	if (motor == 2) return; //the water pump probably needs a seperate driver function due to its AC nature
@@ -682,8 +674,8 @@ void secdrive(int motor) {
 
 	setMotor(motor_id);
 
-	LOGd(3, "curSpeed: %d, sense: %d, report: %d",
-		curSpeedMotor[motor_id], currentSenseMotor[motor_id], reportCSMotor[motor_id]);
+	//LOGd(3, "curSpeed: %d, sense: %d, report: %d",
+	//	curSpeedMotor[motor_id], currentSenseMotor[motor_id], reportCSMotor[motor_id]);
 
 }
 
@@ -870,7 +862,7 @@ void timerCB() {
 		}
 
 		if (lastOn != on) {
-			LOGi(1, "on %d at %d", on, millis());
+			LOGd(1, "on %d at %d", on, millis());
 			digitalWrite(PWM_MOTORS[1], on ? HIGH : LOW);
 		}
 		lastOn = on;

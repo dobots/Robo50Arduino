@@ -2,7 +2,7 @@
 
 TODO
 
-*devise a more sensible way of returning data in debug mode
+*check encoder code & high values vacuum and brush currents
 *check on wheel encoder overflow
 *make wheel driver function proportional to allow for turns from standing still
    (instead of adding 1 to the current speed every loop)
@@ -122,7 +122,7 @@ bool MOTOR_INVERTED[4] = {false, true, true, true};
 #define CURRENT_SENSE_LEFT A0
 #define CURRENT_SENSE_RIGHT A2
 #define CURRENT_LIMIT_DRIVE 1000
-#define COMMAND_TIMEOUT 10000    ///TODO: set this to 500ms or so for use with ROS
+#define COMMAND_TIMEOUT 100000    ///TODO: set this to 500ms or so for use with ROS
 #define INCIDENT_TIMEOUT 5000
 #define MAX_INCIDENT_COUNT 50
 
