@@ -37,11 +37,11 @@ TODO
 27 left wheel direction forward
 28 free
 29 left wheel direction backward
-30 free
-31 bumper sensor 1
-32 free
-33 bumper sensor 2
-34 to 43 free
+30 to 34 free
+35 bumper sensor 1
+36 free
+37 bumper sensor 2
+38 to 43 free
 44 motor B direction (pump)
 45 motor A direction (elevator)
 46 motor D direction (brush)
@@ -130,8 +130,8 @@ bool MOTOR_INVERTED[4] = {false, true, true, true};
 #define FLASH_LIGHT 10
 
 //// bumper
-#define BUMPER1 31
-#define BUMPER2 33
+#define BUMPER1 35
+#define BUMPER2 37
 
 //// accelero / gyro
 #define MAX_AG_HISTORY 5
