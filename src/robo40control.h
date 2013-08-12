@@ -98,7 +98,7 @@ int CURRENT_SENSE_MOTORS[4] = {CURRENT_SENSE_A, CURRENT_SENSE_B, CURRENT_SENSE_C
 #define DIRECTION_A 45  // elevator, + direction -> UP, - direction -> DOWN
 #define DIRECTION_B 44	// pump
 #define DIRECTION_C 47	// vacuum, both directions ok
-#define DIRECTION_D 46 	// brush, - direction -> OK, + direction -> wrong
+#define DIRECTION_D 46 	// brush, + direction -> OK, - direction -> wrong
 int DIRECTION_MOTORS[4] = {DIRECTION_A, DIRECTION_B, DIRECTION_C, DIRECTION_D};
 bool DIRECTION_INVERTED[4] = {false, false, true, true};
 
@@ -120,7 +120,7 @@ bool MOTOR_INVERTED[4] = {false, true, true, true};
 #define CURRENT_SENSE_LEFT A0
 #define CURRENT_SENSE_RIGHT A2
 #define CURRENT_LIMIT_DRIVE 1000
-#define COMMAND_TIMEOUT 100000    ///TODO: set this to 500ms or so for use with ROS
+#define COMMAND_TIMEOUT 500    ///TODO: set this to 500ms or so for use with ROS
 #define INCIDENT_TIMEOUT 5000
 #define MAX_INCIDENT_COUNT 50
 
@@ -198,7 +198,7 @@ float formatAcceleroValue(int value);
 float formatGyroValue(int value);
 float formatCompassValue(int value);
 void resetSensors();
-int getType(aJsonObject* json);
+int getID(aJsonObject* json);
 void decodeMotorCommand(aJsonObject* json, int* motor_id, int* speed);
 void decodeDriveCommand(aJsonObject* json, int* left, int* right);
 

@@ -6,7 +6,7 @@
 // GLOBAL VAR
 // --------------------------------------------------------------------
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DEBUG_BT)
 	bool debug_on = true;
 #else
 	bool debug_on = false;

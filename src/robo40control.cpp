@@ -105,8 +105,11 @@ void setup() {
     pinMode(BUMPER2, INPUT);
 
 	//connect to computer, uses pin 0 and 1
-	Serial.begin(115200);
+	Serial.begin(1152000);
+
+#ifdef DEBUG
 	initLogging(&Serial);
+#endif
 
 	///TODO: make pump work
     // timer for pump;
@@ -116,10 +119,11 @@ void setup() {
 	// connection to compass, uses pins 20 and 21
 	Wire.begin();
 
+#ifdef DEBUG_BT
 	// connect to bluetooth, uses pin 14 and 15
-	//Serial3.begin(115200);
-	//Serial3.flush();
-	//Serial3.setTimeout(10);
+	Serial3.begin(115200);
+	initLogging(&Serial3);
+#endif
 
 	// setup compass
 	// Shift the device's documented slave address (0x42) 1 bit right
@@ -178,6 +182,8 @@ void handleInput(int incoming) {
 
 		case '0': stop(0); stop(1); stop(2); stop(3); break;
 
+		case 'l': log_level = (log_level+1) % 4; LOGd(0, "loglevel: %d", log_level); break;
+
 		default: LOGd(1, "incoming: %c (%d)", incoming, incoming); break;
 	}
 }
@@ -190,49 +196,54 @@ void receiveCommands() {
 		handleInput(incoming);
 	}
 	return;
-
-	// if (Serial3.available()) {
-	//  int incoming = Serial3.read();
-	//  LOGd(1, "serial3: %d", incoming);
-	//  handleInput(incoming);
-	// }
 #endif
 
-	 aJsonObject* item;
-	 if (serial_stream.available()) {
-	 	item = aJson.parse(&serial_stream);
+#ifdef DEBUG_BT
+	if (Serial3.available()) {
+		int incoming = Serial3.read();
+		// LOGd(1, "serial3: %d", incoming);
+		handleInput(incoming);
+	}
+#endif
 
-	 	if (item == NULL) {
-	 		LOGd(0, "not a json object!");
-	 		serial_stream.flush();
-	 		return;
-	 	}
-	 } else {
-	 	return;
-	 }
+	aJsonObject* item;
+	if (serial_stream.available()) {
+		item = aJson.parse(&serial_stream);
 
-	 LOGd(3, "cmdReceived");
+		if (item == NULL) {
+			LOGd(0, "not a json object!");
+			// while(Serial.available()) {
+			// 	Serial3.print(Serial.read());
+			// }
+			// Serial3.println("");
+			serial_stream.flush();
+			return;
+		}
+	} else {
+		return;
+	}
 
-	 switch(getType(item)) {
-	 	case DRIVE_COMMAND:
-	 		handleDriveCommand(item);
-	 		break;
-	 	case MOTOR_COMMAND:
-	 		handleMotorCommand(item);
-	 		break;
-	 	case CONTROL_COMMAND:
-	 		handleControlCommand(item);
-	 		break;
-	 	case DISCONNECT:
-	 		handleDisconnect(item);
-	 		break;
-	 	case SENSOR_REQUEST:
-	 		handleSensorRequest(item);
-	 		break;
-	 	default:
-	 	break;
-	 }
-	 aJson.deleteItem(item);
+	switch(getID(item)) {
+		// switch(getType(item)) {
+		case DRIVE_COMMAND:
+			handleDriveCommand(item);
+			break;
+		case MOTOR_COMMAND:
+			handleMotorCommand(item);
+			break;
+		case CONTROL_COMMAND:
+			handleControlCommand(item);
+			break;
+		case DISCONNECT:
+			handleDisconnect(item);
+			break;
+		case SENSOR_REQUEST:
+			handleSensorRequest(item);
+			break;
+		default:
+			break;
+	}
+	aJson.deleteItem(item);
 
 }
 
@@ -265,16 +276,16 @@ void handleSensorRequest(aJsonObject* json) {
 }
 
 void handleMotorCommand(aJsonObject* json) {
-	LOGd(3, "handleMotorCommand");
 	int id = -1, value = -1;
 	decodeMotorCommand(json, &id, &value); //  motor id, speed value between -255 and 255
+	LOGd(3, "handleMotorCommand (%d, %d)", id, value);
 	desiredSpeedMotor[id] = capSpeed(value);
 }
 
 void handleDriveCommand(aJsonObject* json) {
-	LOGd(3, "hanldeDriveCommand");
 	int leftSpeed = 0, rightSpeed = 0;
 	decodeDriveCommand(json, &leftSpeed, &rightSpeed);
+	LOGd(3, "hanldeDriveCommand (%d, %d)", leftSpeed, rightSpeed);
 	lastcommand = millis();
 	desiredRightSpeed = capSpeed(rightSpeed);
 	desiredLeftSpeed = capSpeed(leftSpeed);
@@ -292,11 +303,12 @@ void sendData() {
 
 	json = aJson.createObject();
 
-	header = aJson.createObject();
-	aJson.addNumberToObject(header, "id", HEADER);
-	aJson.addNumberToObject(header, "timestamp", msgCounter++);
-	aJson.addNumberToObject(header, "type", SENSOR_DATA);
-	aJson.addItemToObject(json, "header", header);
+	// header = aJson.createObject();
+	// aJson.addNumberToObject(header, "id", HEADER);
+	// aJson.addNumberToObject(header, "timestamp", msgCounter++);
+	// aJson.addNumberToObject(header, "type", SENSOR_DATA);
+	// aJson.addItemToObject(json, "header", header);
+	aJson.addNumberToObject(json, "id", SENSOR_DATA);
 
 	data = aJson.createObject();
 
@@ -336,69 +348,69 @@ void sendData() {
     SREG = SaveSREG;                                                    // restore the interrupt flag
 	aJson.addItemToObject(data, "odom", group);
 
-	// WHEELS
-	group = aJson.createObject();
+	// // WHEELS
+	// group = aJson.createObject();
 
-	// .. LEFT
-	sub = aJson.createObject();
-	item = aJson.createObject();
-	aJson.addNumberToObject(item, "present", currentSenseLeft);
-	aJson.addNumberToObject(item, "peak", reportCSLeft);
-	aJson.addItemToObject(sub, "current", item);
-	aJson.addNumberToObject(sub, "speed", curLeftSpeed);
-	aJson.addItemToObject(group, "left", sub);
+	// // .. LEFT
+	// sub = aJson.createObject();
+	// item = aJson.createObject();
+	// aJson.addNumberToObject(item, "present", currentSenseLeft);
+	// aJson.addNumberToObject(item, "peak", reportCSLeft);
+	// aJson.addItemToObject(sub, "current", item);
+	// aJson.addNumberToObject(sub, "speed", curLeftSpeed);
+	// aJson.addItemToObject(group, "left", sub);
 
-	// .. RIGHT
-	sub = aJson.createObject();
-	item = aJson.createObject();
-	aJson.addNumberToObject(item, "present", currentSenseRight);
-	aJson.addNumberToObject(item, "peak", reportCSRight);
-	aJson.addItemToObject(sub, "current", item);
-	aJson.addNumberToObject(sub, "speed", curRightSpeed);
-	aJson.addItemToObject(group, "right", sub);
+	// // .. RIGHT
+	// sub = aJson.createObject();
+	// item = aJson.createObject();
+	// aJson.addNumberToObject(item, "present", currentSenseRight);
+	// aJson.addNumberToObject(item, "peak", reportCSRight);
+	// aJson.addItemToObject(sub, "current", item);
+	// aJson.addNumberToObject(sub, "speed", curRightSpeed);
+	// aJson.addItemToObject(group, "right", sub);
 
-	aJson.addItemToObject(data, "wheels", group);
+	// aJson.addItemToObject(data, "wheels", group);
 
-	// MOTORS
-	group = aJson.createObject();
+	// // MOTORS
+	// group = aJson.createObject();
 
-	// .. ELEVATOR
-	sub = aJson.createObject();
-	item = aJson.createObject();
-	aJson.addNumberToObject(item, "present", currentSenseMotor[ELEVATOR]);
-	aJson.addNumberToObject(item, "peak", reportCSMotor[ELEVATOR]);
-	aJson.addItemToObject(sub, "current", item);
-	aJson.addNumberToObject(sub, "speed", curSpeedMotor[ELEVATOR]);
-	aJson.addItemToObject(group, "elevator", sub);
+	// // .. ELEVATOR
+	// sub = aJson.createObject();
+	// item = aJson.createObject();
+	// aJson.addNumberToObject(item, "present", currentSenseMotor[ELEVATOR]);
+	// aJson.addNumberToObject(item, "peak", reportCSMotor[ELEVATOR]);
+	// aJson.addItemToObject(sub, "current", item);
+	// aJson.addNumberToObject(sub, "speed", curSpeedMotor[ELEVATOR]);
+	// aJson.addItemToObject(group, "elevator", sub);
 
-	// .. PUMP
-	sub = aJson.createObject();
-	item = aJson.createObject();
-	aJson.addNumberToObject(item, "present", currentSenseMotor[PUMP]);
-	aJson.addNumberToObject(item, "peak", reportCSMotor[PUMP]);
-	aJson.addItemToObject(sub, "current", item);
-	aJson.addNumberToObject(sub, "speed", curSpeedMotor[PUMP]);
-	aJson.addItemToObject(group, "pump", sub);
+	// // .. PUMP
+	// sub = aJson.createObject();
+	// item = aJson.createObject();
+	// aJson.addNumberToObject(item, "present", currentSenseMotor[PUMP]);
+	// aJson.addNumberToObject(item, "peak", reportCSMotor[PUMP]);
+	// aJson.addItemToObject(sub, "current", item);
+	// aJson.addNumberToObject(sub, "speed", curSpeedMotor[PUMP]);
+	// aJson.addItemToObject(group, "pump", sub);
 
-	// .. VACUUM
-	sub = aJson.createObject();
-	item = aJson.createObject();
-	aJson.addNumberToObject(item, "present", currentSenseMotor[VACUUM]);
-	aJson.addNumberToObject(item, "peak", reportCSMotor[VACUUM]);
-	aJson.addItemToObject(sub, "current", item);
-	aJson.addNumberToObject(sub, "speed", curSpeedMotor[VACUUM]);
-	aJson.addItemToObject(group, "vacuum", sub);
+	// // .. VACUUM
+	// sub = aJson.createObject();
+	// item = aJson.createObject();
+	// aJson.addNumberToObject(item, "present", currentSenseMotor[VACUUM]);
+	// aJson.addNumberToObject(item, "peak", reportCSMotor[VACUUM]);
+	// aJson.addItemToObject(sub, "current", item);
+	// aJson.addNumberToObject(sub, "speed", curSpeedMotor[VACUUM]);
+	// aJson.addItemToObject(group, "vacuum", sub);
 
-	// .. BRUSH
-	sub = aJson.createObject();
-	item = aJson.createObject();
-	aJson.addNumberToObject(item, "present", currentSenseMotor[BRUSH]);
-	aJson.addNumberToObject(item, "peak", reportCSMotor[BRUSH]);
-	aJson.addItemToObject(sub, "current", item);
-	aJson.addNumberToObject(sub, "speed", curSpeedMotor[BRUSH]);
-	aJson.addItemToObject(group, "brush", sub);
+	// // .. BRUSH
+	// sub = aJson.createObject();
+	// item = aJson.createObject();
+	// aJson.addNumberToObject(item, "present", currentSenseMotor[BRUSH]);
+	// aJson.addNumberToObject(item, "peak", reportCSMotor[BRUSH]);
+	// aJson.addItemToObject(sub, "current", item);
+	// aJson.addNumberToObject(sub, "speed", curSpeedMotor[BRUSH]);
+	// aJson.addItemToObject(group, "brush", sub);
 
-	aJson.addItemToObject(data, "motors", group);
+	// aJson.addItemToObject(data, "motors", group);
 
 	aJson.addItemToObject(json, "data", data);
 
@@ -545,6 +557,9 @@ void HandleRightMotorInterruptA() {
 //***********************************************************************************
 //   actuator functions
 
+unsigned long lastIncidentLogTime = 0;
+unsigned long lastBumperLogTime = 0;
+
 // driver function for wheels
 void drive() {
 	//first check current sensors and tune down desired speed if current is too high
@@ -580,15 +595,18 @@ void drive() {
 		desiredLeftSpeed = 0;
 		desiredRightSpeed = 0;
 
-		LOGd(1, "Wheel speed set to zero due to problem: no commands or too many incidents!");
-		LOGd(3, "senseLeft: %d, senseRight: %d", currentSenseLeft, currentSenseRight);
-		LOGd(3, "last command received: %d, now: %d", lastcommand, time);
+		if (time - lastIncidentLogTime > 500) {
+			LOGd(1, "Wheel speed set to zero due to problem: no commands or too many incidents!");
+			LOGd(3, "senseLeft: %d, senseRight: %d", currentSenseLeft, currentSenseRight);
+			LOGd(3, "last command received: %d, now: %d", lastcommand, time);
+			lastIncidentLogTime = time;
+		}
 	}
 
 	//So far so good, move proportionally closer to desired speed
     if (throttlingCounter < 20) {
-        curRightSpeed = (desiredRightSpeed - originalRightSpeed) * 0.05 * throttlingCounter; 
-        curLeftSpeed = (desiredLeftSpeed - originalLeftSpeed) * 0.05 * throttlingCounter; 
+        curRightSpeed = originalRightSpeed + (desiredRightSpeed - originalRightSpeed) * 0.05 * throttlingCounter; 
+        curLeftSpeed = originalLeftSpeed + (desiredLeftSpeed - originalLeftSpeed) * 0.05 * throttlingCounter; 
         throttlingCounter++;
     } else {
         curLeftSpeed = desiredLeftSpeed;
@@ -612,7 +630,10 @@ void drive() {
         if (originalLeftSpeed > 0) originalLeftSpeed = 0;
         if (originalRightSpeed > 0) originalRightSpeed = 0;
 
-		LOGd(2,"Bumper pressed, only allowing backwards movement!");
+		if (time - lastBumperLogTime > 500) {
+			LOGd(2,"Bumper pressed, only allowing backwards movement!");
+			lastBumperLogTime = time;
+		}
 	}
 
 	if (curLeftSpeed > 0) {
@@ -802,41 +823,45 @@ void resetSensors() {
 
 }
 
-int getType(aJsonObject* json) {
-	aJsonObject* header;
-	aJsonObject* type;
-	header = aJson.getObjectItem(json, "header");
-	if (header == NULL) {
+int getID(aJsonObject* json) {
+	aJsonObject* id;
+	id = aJson.getObjectItem(json, "id");
+	if (id == NULL) {
 		LOGd(1, "wrong json message");
 		return -1;
 	}
-	type = aJson.getObjectItem(header, "type");
-	if (type == NULL) {
-		LOGd(1, "wrong json message");
-		return -1;
-	}
-	return type->valueint;
+	return id->valueint;
 }
 
 void decodeMotorCommand(aJsonObject* json, int* motor_id, int* speed) {
 	aJsonObject* data = aJson.getObjectItem(json, "data");
 
-	aJsonObject* motor_id_j = aJson.getObjectItem(data, "motor_id");
+	aJsonObject* motor_id_j = aJson.getArrayItem(data, 0);
 	*motor_id = motor_id_j->valueint;
 
-	aJsonObject* speed_j = aJson.getObjectItem(data, "speed");
+	aJsonObject* speed_j = aJson.getArrayItem(data, 1);
 	*speed = speed_j->valueint;
 }
 
 void decodeDriveCommand(aJsonObject* json, int* left, int* right) {
 	aJsonObject* data = aJson.getObjectItem(json, "data");
 
-	aJsonObject* left_j = aJson.getObjectItem(data, "left");
+	aJsonObject* left_j = aJson.getArrayItem(data, 0);
 	*left = left_j->valueint;
 
-	aJsonObject* right_j = aJson.getObjectItem(data, "right");
+	aJsonObject* right_j = aJson.getArrayItem(data, 1);
 	*right = right_j->valueint;
 }
+
+// void decodeDriveCommand(aJsonObject* json, int* left, int* right) {
+// 	aJsonObject* data = aJson.getObjectItem(json, "data");
+
+// 	aJsonObject* left_j = aJson.getObjectItem(data, "left");
+// 	*left = left_j->valueint;
+
+// 	aJsonObject* right_j = aJson.getObjectItem(data, "right");
+// 	*right = right_j->valueint;
+// }
 
 //****************************************************************
 //  TODO
