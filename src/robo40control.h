@@ -2,10 +2,8 @@
 
 TODO
 
-*check whether encoders/code are still worker
+*check proportional wheel driver function 
 *check on wheel encoder overflow
-*make wheel driver function proportional to allow for turns from standing still
-   (instead of adding 1 to the current speed every loop)
 *seperate motor incident parameters per motor
 *make pump work! (write a seperate driver function for it? perhaps use timer?)
 *get bumpers on interrupts (may require a uc with more interrupts ;-)

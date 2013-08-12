@@ -26,6 +26,9 @@ int agMin[6];
 //wheel motor / encoder variables
 unsigned long incidents[MAX_INCIDENT_COUNT];
 unsigned long lastcommand;
+int originalLeftSpeed = 0;
+int originalRightSpeed = 0;
+int throttlingCounter = 0;
 int curLeftSpeed = 0;
 int curRightSpeed = 0;
 int desiredLeftSpeed = 0;
@@ -153,12 +156,12 @@ void handleInput(int incoming) {
 	switch(incoming) {
 		case 'o': sendData(); LOGd(1, ""); break;
 
-		case 'q': lastcommand = millis(); desiredLeftSpeed = 0; desiredRightSpeed = 0; break;
-		case 'e': curLeftSpeed = 0; curRightSpeed = 0; desiredLeftSpeed = 0; desiredRightSpeed = 0;	break;
-		case 'w': lastcommand = millis(); desiredLeftSpeed = 200; desiredRightSpeed = 200; break;
-		case 's': lastcommand = millis(); desiredLeftSpeed = -200; desiredRightSpeed = -200; break;
-		case 'a': lastcommand = millis(); desiredLeftSpeed = -100; desiredRightSpeed = 100; break;
-		case 'd': lastcommand = millis(); desiredLeftSpeed = 100; desiredRightSpeed = -100; break;
+		case 'q': lastcommand = millis(); desiredLeftSpeed = 0; desiredRightSpeed = 0; throttlingCounter = 0; break;
+		case 'e': curLeftSpeed = 0; curRightSpeed = 0; desiredLeftSpeed = 0; desiredRightSpeed = 0;	throttlingCounter = 0; break;
+		case 'w': lastcommand = millis(); desiredLeftSpeed = 200; desiredRightSpeed = 200; throttlingCounter = 0; break;
+		case 's': lastcommand = millis(); desiredLeftSpeed = -200; desiredRightSpeed = -200; throttlingCounter = 0; break;
+		case 'a': lastcommand = millis(); desiredLeftSpeed = -100; desiredRightSpeed = 100; throttlingCounter = 0; break;
+		case 'd': lastcommand = millis(); desiredLeftSpeed = 100; desiredRightSpeed = -100; throttlingCounter = 0; break;
 
 		case 'f': flashLight(200); break;
 		case 'r': flashLight(0); break;
@@ -245,6 +248,8 @@ void handleDisconnect(aJsonObject* json) {
 	curRightSpeed = 0;
 	desiredLeftSpeed = 0;
 	desiredRightSpeed = 0;
+    originalLeftSpeed = 0;
+    originalRightSpeed = 0;
 
     //also stop the other motors
     for (int i = 0; i < 4; ++i) {
@@ -273,6 +278,9 @@ void handleDriveCommand(aJsonObject* json) {
 	lastcommand = millis();
 	desiredRightSpeed = capSpeed(rightSpeed);
 	desiredLeftSpeed = capSpeed(leftSpeed);
+    originalRightSpeed = curRightSpeed;
+    originalLeftSpeed = curLeftSpeed;
+    throttlingCounter = 0;
 }
 
 // JSON message is of the format:
@@ -544,8 +552,11 @@ void drive() {
 	if ( (currentSenseLeft > CURRENT_LIMIT_DRIVE) || (currentSenseRight > CURRENT_LIMIT_DRIVE) )
 	{
 		//tune down desiredspeed of both wheels by a percentage
+        originalLeftSpeed = curLeftSpeed;		
+        originalRightSpeed = curRightSpeed;
 		desiredRightSpeed = desiredRightSpeed * 0.8;
 		desiredLeftSpeed = desiredLeftSpeed * 0.8;
+        throttlingCounter = 0; 
 
 		pushIncident(); //store incident
 		LOGd(2, "Too much current in one of the wheels: %d, %d", currentSenseLeft, currentSenseRight);
@@ -562,7 +573,9 @@ void drive() {
 	if ((commandDifference > COMMAND_TIMEOUT) || ((time > INCIDENT_TIMEOUT) && (incidentDifference < INCIDENT_TIMEOUT)))
 	{
 		//bluntly put everything to zero
-		curLeftSpeed = 0;
+        originalLeftSpeed = 0;		
+        originalRightSpeed = 0;
+        curLeftSpeed = 0;
 		curRightSpeed = 0;
 		desiredLeftSpeed = 0;
 		desiredRightSpeed = 0;
@@ -572,18 +585,16 @@ void drive() {
 		LOGd(3, "last command received: %d, now: %d", lastcommand, time);
 	}
 
-	//So far so good, move closer to desired speed
-	if (desiredRightSpeed < curRightSpeed) {
-		curRightSpeed--;
-	} else if (desiredRightSpeed > curRightSpeed) {
-		curRightSpeed++;
-	}
+	//So far so good, move proportionally closer to desired speed
+    if (throttlingCounter < 20) {
+        curRightSpeed = (desiredRightSpeed - originalRightSpeed) * 0.05 * throttlingCounter; 
+        curLeftSpeed = (desiredLeftSpeed - originalLeftSpeed) * 0.05 * throttlingCounter; 
+        throttlingCounter++;
+    } else {
+        curLeftSpeed = desiredLeftSpeed;
+        curRightSpeed = desiredRightSpeed;
+    }
 
-	if (desiredLeftSpeed < curLeftSpeed) {
-		curLeftSpeed--;
-	} else if (desiredLeftSpeed > curLeftSpeed) {
-		curLeftSpeed++;
-	}
 
 	//finally check bumpers to disallow movement forward
 	int bump1 = digitalRead(BUMPER1);
@@ -597,6 +608,9 @@ void drive() {
 
 		if (desiredRightSpeed > 0) desiredRightSpeed = 0;
 		if (desiredLeftSpeed > 0) desiredLeftSpeed = 0;
+
+        if (originalLeftSpeed > 0) originalLeftSpeed = 0;
+        if (originalRightSpeed > 0) originalRightSpeed = 0;
 
 		LOGd(2,"Bumper pressed, only allowing backwards movement!");
 	}
