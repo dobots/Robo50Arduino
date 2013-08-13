@@ -662,6 +662,12 @@ void drive() {
 		digitalWrite(DIRECTION_RIGHT_BW, LOW);
 	}
 
+	if ((curRightSpeed | curLeftSpeed) != 0) {
+		flashLight(255);
+	} else {
+		flashLight(0);
+	}
+
 	analogWrite(PWM_LEFT, abs(curLeftSpeed));   //PWM Speed Control
 	analogWrite(PWM_RIGHT, abs(curRightSpeed));   //PWM Speed Control
 
@@ -739,7 +745,7 @@ void stop(int motor_id) {
 }
 
 int capSpeed(int value) {
-    return max(min(value,249),-249);
+    return max(min(value,255),-255);
 }
 
 void flashLight(int speed) {
