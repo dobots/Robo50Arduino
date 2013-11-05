@@ -33,8 +33,8 @@ int curLeftSpeed = 0;
 int curRightSpeed = 0;
 int desiredLeftSpeed = 0;
 int desiredRightSpeed = 0;
-char lastDirectionLeft = 0;  //char to make sure operations on it are atomic
-char lastDirectionRight = 0;
+//char lastDirectionLeft = 0;  //char to make sure operations on it are atomic
+//char lastDirectionRight = 0;
 int currentSenseLeft = 0;
 int currentSenseRight = 0;
 int reportCSLeft = 0;
@@ -515,43 +515,45 @@ void readAG() {
 // Interrupt service routines for the left motor's quadrature encoder
 void HandleLeftMotorInterruptA() {
 
-    #ifdef LeftEncoderIsReversed
-        _LeftEncoderTicks -= lastDirectionLeft;
-	#else
-	    _LeftEncoderTicks += lastDirectionLeft;
-	#endif
+    //for managing with 1 channel encoder (really doesnt work at all)
+    //#ifdef LeftEncoderIsReversed
+    //    _LeftEncoderTicks -= lastDirectionLeft;
+    //	#else
+	//    _LeftEncoderTicks += lastDirectionLeft;
+	//#endif
 
     //for working 2channel encoder
 	// Test transition; since the interrupt will only fire on 'rising' we don't need to read pin A
-	//_LeftEncoderBSet = analogRead(c_LeftEncoderPinB) < 512 ? false : true;   // read the input pin
+	_LeftEncoderBSet = analogRead(c_LeftEncoderPinB) < 512 ? false : true;   // read the input pin
 
 	// and adjust counter + if A leads B
-	//#ifdef LeftEncoderIsReversed
-	//  _LeftEncoderTicks -= _LeftEncoderBSet ? -1 : +1;
-	//#else
-	//  _LeftEncoderTicks += _LeftEncoderBSet ? -1 : +1;
-	//#endif
+	#ifdef LeftEncoderIsReversed
+	  _LeftEncoderTicks -= _LeftEncoderBSet ? -1 : +1;
+	#else
+	  _LeftEncoderTicks += _LeftEncoderBSet ? -1 : +1;
+	#endif
 }
 
 // Interrupt service routines for the right motor's quadrature encoder
 void HandleRightMotorInterruptA() {
 
-    #ifdef RightEncoderIsReversed
-        _RightEncoderTicks -= lastDirectionRight;
-	#else
-	    _RightEncoderTicks += lastDirectionRight;
-	#endif
+    //for managing with 1 channel encoder (really doesnt work at all)
+    //#ifdef RightEncoderIsReversed
+    //    _RightEncoderTicks -= lastDirectionRight;
+	//#else
+	//    _RightEncoderTicks += lastDirectionRight;
+	//#endif
 
     //for working 2channel encoder
 	// Test transition; since the interrupt will only fire on 'rising' we don't need to read pin A
-    //	_RightEncoderBSet = analogRead(c_RightEncoderPinB) < 512 ? false : true;   // read the input pin  //digitalReadFast
+    	_RightEncoderBSet = analogRead(c_RightEncoderPinB) < 750 ? false : true;   // read the input pin  //digitalReadFast
 
 	// and adjust counter + if A leads B
-	//#ifdef RightEncoderIsReversed
-	//  _RightEncoderTicks -= _RightEncoderBSet ? -1 : +1;
-	//#else
-	//  _RightEncoderTicks += _RightEncoderBSet ? -1 : +1;
-	//#endif
+	#ifdef RightEncoderIsReversed
+	  _RightEncoderTicks -= _RightEncoderBSet ? -1 : +1;
+	#else
+	  _RightEncoderTicks += _RightEncoderBSet ? -1 : +1;
+	#endif
 }
 
 //***********************************************************************************
@@ -616,7 +618,7 @@ void drive() {
 
 	//finally check bumpers to disallow movement forward
 	int bump1 = digitalRead(BUMPER1);
-    int bump2 = digitalRead(BUMPER2);
+    	int bump2 = digitalRead(BUMPER2);
 
 	if ((bump1 == 0) || (bump2 == 0)) //bumper pressed
 	{
@@ -627,8 +629,8 @@ void drive() {
 		if (desiredRightSpeed > 0) desiredRightSpeed = 0;
 		if (desiredLeftSpeed > 0) desiredLeftSpeed = 0;
 
-        if (originalLeftSpeed > 0) originalLeftSpeed = 0;
-        if (originalRightSpeed > 0) originalRightSpeed = 0;
+        	if (originalLeftSpeed > 0) originalLeftSpeed = 0;
+        	if (originalRightSpeed > 0) originalRightSpeed = 0;
 
 		if (time - lastBumperLogTime > 500) {
 			LOGd(2,"Bumper pressed, only allowing backwards movement!");
@@ -638,26 +640,26 @@ void drive() {
 
 	if (curLeftSpeed > 0) {
 		digitalWrite(DIRECTION_LEFT_FW, HIGH);
-		lastDirectionLeft = 1; //to let the encoder know which way we're going
+		//lastDirectionLeft = 1; //to let the encoder know which way we're going
 	} else {
 		digitalWrite(DIRECTION_LEFT_FW, LOW);
 	}
 	if (curLeftSpeed < 0) {
 		digitalWrite(DIRECTION_LEFT_BW, HIGH);
-		lastDirectionLeft = -1; //to let the encoder know which way we're going
+		//lastDirectionLeft = -1; //to let the encoder know which way we're going
 	} else {
 		digitalWrite(DIRECTION_LEFT_BW, LOW);
 	}
 
 	if (curRightSpeed > 0) {
 		digitalWrite(DIRECTION_RIGHT_FW, HIGH);
-		lastDirectionRight = 1; //to let the encoder know which way we're going
+		//lastDirectionRight = 1; //to let the encoder know which way we're going
 	} else {
 		digitalWrite(DIRECTION_RIGHT_FW, LOW);
 	}
 	if (curRightSpeed < 0) {
 		digitalWrite(DIRECTION_RIGHT_BW, HIGH);
-		lastDirectionRight = -1; //to let the encoder know which way we're going
+		//lastDirectionRight = -1; //to let the encoder know which way we're going
 	} else {
 		digitalWrite(DIRECTION_RIGHT_BW, LOW);
 	}

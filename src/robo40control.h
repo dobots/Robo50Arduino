@@ -120,7 +120,7 @@ bool MOTOR_INVERTED[4] = {false, true, true, true};
 #define CURRENT_SENSE_LEFT A0
 #define CURRENT_SENSE_RIGHT A2
 #define CURRENT_LIMIT_DRIVE 1000
-#define COMMAND_TIMEOUT 500    ///TODO: set this to 500ms or so for use with ROS
+#define COMMAND_TIMEOUT 5000    ///TODO: set this to 500ms or so for use with ROS
 #define INCIDENT_TIMEOUT 5000
 #define MAX_INCIDENT_COUNT 50
 
@@ -128,8 +128,8 @@ bool MOTOR_INVERTED[4] = {false, true, true, true};
 #define FLASH_LIGHT 10
 
 //// bumper
-#define BUMPER1 35
-#define BUMPER2 37
+#define BUMPER1 37
+#define BUMPER2 35
 
 //// accelero / gyro
 #define MAX_AG_HISTORY 5
@@ -149,15 +149,16 @@ bool MOTOR_INVERTED[4] = {false, true, true, true};
 //// right encoder
 #define c_RightEncoderInterrupt 4 //(interrupt 4 is on pin 19)
 #define c_RightEncoderPinA 19
-#define c_RightEncoderPinB A14
+#define c_RightEncoderPinB A8
 //#define RightEncoderIsReversed   //example, just to let you know this is checked in the cpp file
-//volatile bool _RightEncoderBSet; //required for working quadrature encoder
+volatile bool _RightEncoderBSet; //required for working quadrature encoder
 
 //// left encoder
 #define c_LeftEncoderInterrupt 5   //(interrupt 5 is on pin 18)
 #define c_LeftEncoderPinA 18
-#define c_LeftEncoderPinB A15
-//volatile bool _LeftEncoderBSet;
+#define c_LeftEncoderPinB A9
+#define LeftEncoderIsReversed
+volatile bool _LeftEncoderBSet;
 
 
 ////////////////////////////////
