@@ -147,18 +147,18 @@ bool MOTOR_INVERTED[4] = {false, true, true, true};
 #define MAX_HEADING_HISTORY 5
 
 //// right encoder
-#define c_RightEncoderInterrupt 4 //(interrupt 4 is on pin 19)
-#define c_RightEncoderPinA 19
-#define c_RightEncoderPinB A8
-//#define RightEncoderIsReversed   //example, just to let you know this is checked in the cpp file
-volatile bool _RightEncoderBSet; //required for working quadrature encoder
+// #define c_RightEncoderInterrupt 4 //(interrupt 4 is on pin 19)
+// #define c_RightEncoderPinA 19
+// #define c_RightEncoderPinB A8
+// //#define RightEncoderIsReversed   //example, just to let you know this is checked in the cpp file
+// volatile bool _RightEncoderBSet; //required for working quadrature encoder
 
 //// left encoder
-#define c_LeftEncoderInterrupt 5   //(interrupt 5 is on pin 18)
-#define c_LeftEncoderPinA 18
-#define c_LeftEncoderPinB A9
-#define LeftEncoderIsReversed
-volatile bool _LeftEncoderBSet;
+// #define c_LeftEncoderInterrupt 5   //(interrupt 5 is on pin 18)
+// #define c_LeftEncoderPinA 18
+// #define c_LeftEncoderPinB A9
+// #define LeftEncoderIsReversed
+// volatile bool _LeftEncoderBSet;
 
 
 ////////////////////////////////

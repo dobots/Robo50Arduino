@@ -67,16 +67,16 @@ void setup() {
 		stop(i);
 	}
 
-	//setup pulse counter callbacks   //interrupts cause problem for drive function
-	// Quadrature encoders
-	// Left encoder
-	pinMode(c_LeftEncoderPinA, INPUT);      // sets pin A as input
-	pinMode(c_LeftEncoderPinB, INPUT);      // sets pin B as input
-	attachInterrupt(c_LeftEncoderInterrupt, HandleLeftMotorInterruptA, RISING);
-	// Right encoder
-	pinMode(c_RightEncoderPinA, INPUT);      // sets pin A as input
-	pinMode(c_RightEncoderPinB, INPUT);      // sets pin B as input
-	attachInterrupt(c_RightEncoderInterrupt, HandleRightMotorInterruptA, RISING);
+	// //setup pulse counter callbacks   //interrupts cause problem for drive function
+	// // Quadrature encoders
+	// // Left encoder
+	// pinMode(c_LeftEncoderPinA, INPUT);      // sets pin A as input
+	// pinMode(c_LeftEncoderPinB, INPUT);      // sets pin B as input
+	// attachInterrupt(c_LeftEncoderInterrupt, HandleLeftMotorInterruptA, RISING);
+	// // Right encoder
+	// pinMode(c_RightEncoderPinA, INPUT);      // sets pin A as input
+	// pinMode(c_RightEncoderPinB, INPUT);      // sets pin B as input
+	// attachInterrupt(c_RightEncoderInterrupt, HandleRightMotorInterruptA, RISING);
 
 	pinMode(DIRECTION_LEFT_FW, OUTPUT);
 	pinMode(DIRECTION_LEFT_BW, OUTPUT);
@@ -105,7 +105,7 @@ void setup() {
     pinMode(BUMPER2, INPUT);
 
 	//connect to computer, uses pin 0 and 1
-	Serial.begin(1152000);
+	Serial.begin(115200);
 
 #ifdef DEBUG
 	initLogging(&Serial);
@@ -513,48 +513,48 @@ void readAG() {
 }
 
 // Interrupt service routines for the left motor's quadrature encoder
-void HandleLeftMotorInterruptA() {
+// void HandleLeftMotorInterruptA() {
 
-    //for managing with 1 channel encoder (really doesnt work at all)
-    //#ifdef LeftEncoderIsReversed
-    //    _LeftEncoderTicks -= lastDirectionLeft;
-    //	#else
-	//    _LeftEncoderTicks += lastDirectionLeft;
-	//#endif
+//     //for managing with 1 channel encoder (really doesnt work at all)
+//     //#ifdef LeftEncoderIsReversed
+//     //    _LeftEncoderTicks -= lastDirectionLeft;
+//     //	#else
+// 	//    _LeftEncoderTicks += lastDirectionLeft;
+// 	//#endif
 
-    //for working 2channel encoder
-	// Test transition; since the interrupt will only fire on 'rising' we don't need to read pin A
-	_LeftEncoderBSet = analogRead(c_LeftEncoderPinB) < 512 ? false : true;   // read the input pin
+//     //for working 2channel encoder
+// 	// Test transition; since the interrupt will only fire on 'rising' we don't need to read pin A
+// 	_LeftEncoderBSet = analogRead(c_LeftEncoderPinB) < 512 ? false : true;   // read the input pin
 
-	// and adjust counter + if A leads B
-	#ifdef LeftEncoderIsReversed
-	  _LeftEncoderTicks -= _LeftEncoderBSet ? -1 : +1;
-	#else
-	  _LeftEncoderTicks += _LeftEncoderBSet ? -1 : +1;
-	#endif
-}
+// 	// and adjust counter + if A leads B
+// 	#ifdef LeftEncoderIsReversed
+// 	  _LeftEncoderTicks -= _LeftEncoderBSet ? -1 : +1;
+// 	#else
+// 	  _LeftEncoderTicks += _LeftEncoderBSet ? -1 : +1;
+// 	#endif
+// }
 
 // Interrupt service routines for the right motor's quadrature encoder
-void HandleRightMotorInterruptA() {
+// void HandleRightMotorInterruptA() {
 
-    //for managing with 1 channel encoder (really doesnt work at all)
-    //#ifdef RightEncoderIsReversed
-    //    _RightEncoderTicks -= lastDirectionRight;
-	//#else
-	//    _RightEncoderTicks += lastDirectionRight;
-	//#endif
+//     //for managing with 1 channel encoder (really doesnt work at all)
+//     //#ifdef RightEncoderIsReversed
+//     //    _RightEncoderTicks -= lastDirectionRight;
+// 	//#else
+// 	//    _RightEncoderTicks += lastDirectionRight;
+// 	//#endif
 
-    //for working 2channel encoder
-	// Test transition; since the interrupt will only fire on 'rising' we don't need to read pin A
-    	_RightEncoderBSet = analogRead(c_RightEncoderPinB) < 750 ? false : true;   // read the input pin  //digitalReadFast
+//     //for working 2channel encoder
+// 	// Test transition; since the interrupt will only fire on 'rising' we don't need to read pin A
+//     	_RightEncoderBSet = analogRead(c_RightEncoderPinB) < 750 ? false : true;   // read the input pin  //digitalReadFast
 
-	// and adjust counter + if A leads B
-	#ifdef RightEncoderIsReversed
-	  _RightEncoderTicks -= _RightEncoderBSet ? -1 : +1;
-	#else
-	  _RightEncoderTicks += _RightEncoderBSet ? -1 : +1;
-	#endif
-}
+// 	// and adjust counter + if A leads B
+// 	#ifdef RightEncoderIsReversed
+// 	  _RightEncoderTicks -= _RightEncoderBSet ? -1 : +1;
+// 	#else
+// 	  _RightEncoderTicks += _RightEncoderBSet ? -1 : +1;
+// 	#endif
+// }
 
 //***********************************************************************************
 //   actuator functions
