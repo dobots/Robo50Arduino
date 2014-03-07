@@ -142,6 +142,7 @@ void setup() {
 }
 
 void loop() {
+//	sendData();
 
 	receiveCommands();							//talky talky
 
@@ -338,38 +339,38 @@ void sendData() {
 	aJson.addItemToObject(data, "gyro", group);
 
 	// ENCODER
-	group = aJson.createObject();
-    //Ticks can be changed in the interrupts and its a 2-byte value (most likely not atomic)
-    //Therefore disable the interrupts while sending the data here!
-    uint8_t SaveSREG = SREG;                                            // save interrupt flag
-    cli();                                                              // disable interrupts
-    aJson.addNumberToObject(group, "rightEncoder", _RightEncoderTicks); // access the shared data
-	aJson.addNumberToObject(group, "leftEncoder", _LeftEncoderTicks);   //
-    SREG = SaveSREG;                                                    // restore the interrupt flag
-	aJson.addItemToObject(data, "odom", group);
-
-	// // WHEELS
 	// group = aJson.createObject();
+ //    //Ticks can be changed in the interrupts and its a 2-byte value (most likely not atomic)
+ //    //Therefore disable the interrupts while sending the data here!
+ //    uint8_t SaveSREG = SREG;                                            // save interrupt flag
+ //    cli();                                                              // disable interrupts
+ //    aJson.addNumberToObject(group, "rightEncoder", _RightEncoderTicks); // access the shared data
+	// aJson.addNumberToObject(group, "leftEncoder", _LeftEncoderTicks);   //
+ //    SREG = SaveSREG;                                                    // restore the interrupt flag
+	// aJson.addItemToObject(data, "odom", group);
 
-	// // .. LEFT
-	// sub = aJson.createObject();
+	// WHEELS
+	group = aJson.createObject();
+
+	// .. LEFT
+	sub = aJson.createObject();
 	// item = aJson.createObject();
 	// aJson.addNumberToObject(item, "present", currentSenseLeft);
 	// aJson.addNumberToObject(item, "peak", reportCSLeft);
 	// aJson.addItemToObject(sub, "current", item);
-	// aJson.addNumberToObject(sub, "speed", curLeftSpeed);
-	// aJson.addItemToObject(group, "left", sub);
+	aJson.addNumberToObject(sub, "speed", curLeftSpeed);
+	aJson.addItemToObject(group, "left", sub);
 
-	// // .. RIGHT
-	// sub = aJson.createObject();
+	// .. RIGHT
+	sub = aJson.createObject();
 	// item = aJson.createObject();
 	// aJson.addNumberToObject(item, "present", currentSenseRight);
 	// aJson.addNumberToObject(item, "peak", reportCSRight);
 	// aJson.addItemToObject(sub, "current", item);
-	// aJson.addNumberToObject(sub, "speed", curRightSpeed);
-	// aJson.addItemToObject(group, "right", sub);
+	aJson.addNumberToObject(sub, "speed", curRightSpeed);
+	aJson.addItemToObject(group, "right", sub);
 
-	// aJson.addItemToObject(data, "wheels", group);
+	aJson.addItemToObject(data, "wheels", group);
 
 	// // MOTORS
 	// group = aJson.createObject();
@@ -615,7 +616,7 @@ void drive() {
         curRightSpeed = desiredRightSpeed;
     }
 
-
+#ifndef DEBUG
 	//finally check bumpers to disallow movement forward
 	int bump1 = digitalRead(BUMPER1);
     	int bump2 = digitalRead(BUMPER2);
@@ -637,6 +638,7 @@ void drive() {
 			lastBumperLogTime = time;
 		}
 	}
+#endif
 
 	if (curLeftSpeed > 0) {
 		digitalWrite(DIRECTION_LEFT_FW, HIGH);
