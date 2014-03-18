@@ -749,7 +749,7 @@ void stop(int motor_id) {
 }
 
 int capSpeed(int value) {
-    return max(min(value,255),-255);
+    return max(min(value,200),-200);
 }
 
 void flashLight(int speed) {
