@@ -1,7 +1,6 @@
 #include "debug.h"
 #include "robo40control.h"
 
-
 // JSON message is of the format:
 // {"compass":{"heading":119.00000},"accelero":{"x":0.04712,"y":0.00049,"z":0.97757},"gyro":{"x":-0.39674,"y":-1.95318,"z":-1.65563}}
 
@@ -12,23 +11,20 @@ int HMC6352Address = 0x42;
 int slaveAddress; // This is calculated in the setup() function
 byte headingData[2];
 int headingValue;
-int headingHistory[MAX_HEADING_HISTORY];
-long headingAvg = -1L;
-int headingMax = -1;
-int headingMin = 10000;
+//int headingHistory[MAX_HEADING_HISTORY];
+//long headingAvg = -1L;
+//int headingMax = -1;
+//int headingMin = 10000;
 bool ag_connected = false;
 int agValue[6];
-int agHistory[6][MAX_AG_HISTORY];
-long agAvg[6];
-int agMax[6];
-int agMin[6];
+//int agHistory[6][MAX_AG_HISTORY];
+//long agAvg[6];
+//int agMax[6];
+//int agMin[6];
 
 //wheel motor / encoder variables
 unsigned long incidents[MAX_INCIDENT_COUNT];
 unsigned long lastcommand;
-int originalLeftSpeed = 0;
-int originalRightSpeed = 0;
-int throttlingCounter = 0;
 int curLeftSpeed = 0;
 int curRightSpeed = 0;
 int desiredLeftSpeed = 0;
@@ -39,8 +35,6 @@ int currentSenseLeft = 0;
 int currentSenseRight = 0;
 int reportCSLeft = 0;
 int reportCSRight = 0;
-volatile int _LeftEncoderTicks = 0;   //value can be changed in interrupt
-volatile int _RightEncoderTicks = 0;
 
 //additional motor variables
 int curSpeedMotor[4] = {0, 0, 0, 0};
@@ -161,12 +155,12 @@ void handleInput(int incoming) {
 	switch(incoming) {
 		case 'o': sendData(); LOGd(1, ""); break;
 
-		case 'q': lastcommand = millis(); desiredLeftSpeed = 0; desiredRightSpeed = 0; throttlingCounter = 0; break;
-		case 'e': curLeftSpeed = 0; curRightSpeed = 0; desiredLeftSpeed = 0; desiredRightSpeed = 0;	throttlingCounter = 0; break;
-		case 'w': lastcommand = millis(); desiredLeftSpeed = 200; desiredRightSpeed = 200; throttlingCounter = 0; break;
-		case 's': lastcommand = millis(); desiredLeftSpeed = -200; desiredRightSpeed = -200; throttlingCounter = 0; break;
-		case 'a': lastcommand = millis(); desiredLeftSpeed = -100; desiredRightSpeed = 100; throttlingCounter = 0; break;
-		case 'd': lastcommand = millis(); desiredLeftSpeed = 100; desiredRightSpeed = -100; throttlingCounter = 0; break;
+		case 'q': lastcommand = millis(); desiredLeftSpeed = 0; desiredRightSpeed = 0; break;
+		case 'e': curLeftSpeed = 0; curRightSpeed = 0; desiredLeftSpeed = 0; desiredRightSpeed = 0;	break;
+		case 'w': lastcommand = millis(); desiredLeftSpeed = 200; desiredRightSpeed = 200; break;
+		case 's': lastcommand = millis(); desiredLeftSpeed = -200; desiredRightSpeed = -200; break;
+		case 'a': lastcommand = millis(); desiredLeftSpeed = -100; desiredRightSpeed = 100; break;
+		case 'd': lastcommand = millis(); desiredLeftSpeed = 100; desiredRightSpeed = -100; break;
 
 		case 'f': flashLight(200); break;
 		case 'r': flashLight(0); break;
@@ -260,8 +254,6 @@ void handleDisconnect(aJsonObject* json) {
 	curRightSpeed = 0;
 	desiredLeftSpeed = 0;
 	desiredRightSpeed = 0;
-    originalLeftSpeed = 0;
-    originalRightSpeed = 0;
 
     //also stop the other motors
     for (int i = 0; i < 4; ++i) {
@@ -290,9 +282,6 @@ void handleDriveCommand(aJsonObject* json) {
 	lastcommand = millis();
 	desiredRightSpeed = capSpeed(rightSpeed);
 	desiredLeftSpeed = capSpeed(leftSpeed);
-    originalRightSpeed = curRightSpeed;
-    originalLeftSpeed = curLeftSpeed;
-    throttlingCounter = 0;
 }
 
 // JSON message is of the format:
@@ -337,17 +326,6 @@ void sendData() {
 	aJson.addNumberToObject(group, "y", formatGyroValue(agValue[GY]));
 	aJson.addNumberToObject(group, "z", formatGyroValue(agValue[GZ]));
 	aJson.addItemToObject(data, "gyro", group);
-
-	// ENCODER
-	// group = aJson.createObject();
- //    //Ticks can be changed in the interrupts and its a 2-byte value (most likely not atomic)
- //    //Therefore disable the interrupts while sending the data here!
- //    uint8_t SaveSREG = SREG;                                            // save interrupt flag
- //    cli();                                                              // disable interrupts
- //    aJson.addNumberToObject(group, "rightEncoder", _RightEncoderTicks); // access the shared data
-	// aJson.addNumberToObject(group, "leftEncoder", _LeftEncoderTicks);   //
- //    SREG = SaveSREG;                                                    // restore the interrupt flag
-	// aJson.addItemToObject(data, "odom", group);
 
 	// WHEELS
 	group = aJson.createObject();
@@ -453,28 +431,28 @@ void readCompass() {
 	}
 	headingValue = headingData[0]*256 + headingData[1];  // Put the MSB and LSB together
 
-	pushFront(headingValue, headingHistory, MAX_HEADING_HISTORY);
-
-	//calculate new min / max values
-	if (headingValue > headingMax) {
-		headingMax = headingValue;
-	}
-
-	if (headingValue < headingMin) {
-		headingMin = headingValue;
-	}
-
-	//calculate new rolling average
-	long nHeadingAvg = 0L;
-	int elements = 0;
-	for (int i = 0; i < MAX_HEADING_HISTORY; i++)
-	{
-		if (headingHistory[i] == -1.0) continue;
-		elements++;
-		nHeadingAvg += headingHistory[i];
-	}
-
-	headingAvg = (long) nHeadingAvg / elements;
+//	pushFront(headingValue, headingHistory, MAX_HEADING_HISTORY);
+//
+//	//calculate new min / max values
+//	if (headingValue > headingMax) {
+//		headingMax = headingValue;
+//	}
+//
+//	if (headingValue < headingMin) {
+//		headingMin = headingValue;
+//	}
+//
+//	//calculate new rolling average
+//	long nHeadingAvg = 0L;
+//	int elements = 0;
+//	for (int i = 0; i < MAX_HEADING_HISTORY; i++)
+//	{
+//		if (headingHistory[i] == -1.0) continue;
+//		elements++;
+//		nHeadingAvg += headingHistory[i];
+//	}
+//
+//	headingAvg = (long) nHeadingAvg / elements;
 
 }
 
@@ -485,77 +463,33 @@ void readAG() {
 	// read raw accel/gyro measurements from device
 	accelgyro.getMotion6(&agValue[AX], &agValue[AY], &agValue[AZ], &agValue[GX], &agValue[GY], &agValue[GZ]);
 
-	for (int j = 0; j < 6; ++j)
-	{
-			// agValue[j] = agValue[j] / (32767 / 2) * 9.81;
-
-		pushFront(agValue[j], agHistory[j], MAX_AG_HISTORY);
-
-			//calculate the new min / max values
-		if (agValue[j] > agMax[j]) {
-			agMax[j] = agValue[j];
-		}
-
-		if (agValue[j] < agMin[j]) {
-			agMin[j] = agValue[j];
-		}
-
-			//calculate the new rolling average
-		int elements = 0;
-		long average = 0L;
-		for (int i = 0; i < MAX_AG_HISTORY; i++)
-		{
-			if (agHistory[j][i] == -1.0) continue;
-			elements++;
-			average += agHistory[j][i];
-		}
-		agAvg[j] = (long) average /  elements;
-	}
+//	for (int j = 0; j < 6; ++j)
+//	{
+//			// agValue[j] = agValue[j] / (32767 / 2) * 9.81;
+//
+//		pushFront(agValue[j], agHistory[j], MAX_AG_HISTORY);
+//
+//			//calculate the new min / max values
+//		if (agValue[j] > agMax[j]) {
+//			agMax[j] = agValue[j];
+//		}
+//
+//		if (agValue[j] < agMin[j]) {
+//			agMin[j] = agValue[j];
+//		}
+//
+//			//calculate the new rolling average
+//		int elements = 0;
+//		long average = 0L;
+//		for (int i = 0; i < MAX_AG_HISTORY; i++)
+//		{
+//			if (agHistory[j][i] == -1.0) continue;
+//			elements++;
+//			average += agHistory[j][i];
+//		}
+//		agAvg[j] = (long) average /  elements;
+//	}
 }
-
-// Interrupt service routines for the left motor's quadrature encoder
-// void HandleLeftMotorInterruptA() {
-
-//     //for managing with 1 channel encoder (really doesnt work at all)
-//     //#ifdef LeftEncoderIsReversed
-//     //    _LeftEncoderTicks -= lastDirectionLeft;
-//     //	#else
-// 	//    _LeftEncoderTicks += lastDirectionLeft;
-// 	//#endif
-
-//     //for working 2channel encoder
-// 	// Test transition; since the interrupt will only fire on 'rising' we don't need to read pin A
-// 	_LeftEncoderBSet = analogRead(c_LeftEncoderPinB) < 512 ? false : true;   // read the input pin
-
-// 	// and adjust counter + if A leads B
-// 	#ifdef LeftEncoderIsReversed
-// 	  _LeftEncoderTicks -= _LeftEncoderBSet ? -1 : +1;
-// 	#else
-// 	  _LeftEncoderTicks += _LeftEncoderBSet ? -1 : +1;
-// 	#endif
-// }
-
-// Interrupt service routines for the right motor's quadrature encoder
-// void HandleRightMotorInterruptA() {
-
-//     //for managing with 1 channel encoder (really doesnt work at all)
-//     //#ifdef RightEncoderIsReversed
-//     //    _RightEncoderTicks -= lastDirectionRight;
-// 	//#else
-// 	//    _RightEncoderTicks += lastDirectionRight;
-// 	//#endif
-
-//     //for working 2channel encoder
-// 	// Test transition; since the interrupt will only fire on 'rising' we don't need to read pin A
-//     	_RightEncoderBSet = analogRead(c_RightEncoderPinB) < 750 ? false : true;   // read the input pin  //digitalReadFast
-
-// 	// and adjust counter + if A leads B
-// 	#ifdef RightEncoderIsReversed
-// 	  _RightEncoderTicks -= _RightEncoderBSet ? -1 : +1;
-// 	#else
-// 	  _RightEncoderTicks += _RightEncoderBSet ? -1 : +1;
-// 	#endif
-// }
 
 //***********************************************************************************
 //   actuator functions
@@ -570,11 +504,8 @@ void drive() {
 	if ( (currentSenseLeft > CURRENT_LIMIT_DRIVE) || (currentSenseRight > CURRENT_LIMIT_DRIVE) )
 	{
 		//tune down desiredspeed of both wheels by a percentage
-        originalLeftSpeed = curLeftSpeed;		
-        originalRightSpeed = curRightSpeed;
 		desiredRightSpeed = desiredRightSpeed * 0.8;
 		desiredLeftSpeed = desiredLeftSpeed * 0.8;
-        throttlingCounter = 0; 
 
 		pushIncident(); //store incident
 		LOGd(2, "Too much current in one of the wheels: %d, %d", currentSenseLeft, currentSenseRight);
@@ -591,8 +522,6 @@ void drive() {
 	if ((commandDifference > COMMAND_TIMEOUT) || ((time > INCIDENT_TIMEOUT) && (incidentDifference < INCIDENT_TIMEOUT)))
 	{
 		//bluntly put everything to zero
-        originalLeftSpeed = 0;		
-        originalRightSpeed = 0;
         curLeftSpeed = 0;
 		curRightSpeed = 0;
 		desiredLeftSpeed = 0;
@@ -607,19 +536,16 @@ void drive() {
 	}
 
 	//So far so good, move proportionally closer to desired speed
-    if (throttlingCounter < 20) {
-        curRightSpeed = originalRightSpeed + (desiredRightSpeed - originalRightSpeed) * 0.05 * throttlingCounter; 
-        curLeftSpeed = originalLeftSpeed + (desiredLeftSpeed - originalLeftSpeed) * 0.05 * throttlingCounter; 
-        throttlingCounter++;
-    } else {
-        curLeftSpeed = desiredLeftSpeed;
-        curRightSpeed = desiredRightSpeed;
-    }
+	int diffRightSpeed = desiredRightSpeed - curRightSpeed;
+    curRightSpeed += sgn(diffRightSpeed) * min(abs(diffRightSpeed), 40);
+
+	int diffLeftSpeed = desiredLeftSpeed - curLeftSpeed;
+    curLeftSpeed += sgn(diffLeftSpeed) * min(abs(diffLeftSpeed), 40);
 
 #ifndef DEBUG
 	//finally check bumpers to disallow movement forward
 	int bump1 = digitalRead(BUMPER1);
-    	int bump2 = digitalRead(BUMPER2);
+	int bump2 = digitalRead(BUMPER2);
 
 	if ((bump1 == 0) || (bump2 == 0)) //bumper pressed
 	{
@@ -629,9 +555,6 @@ void drive() {
 
 		if (desiredRightSpeed > 0) desiredRightSpeed = 0;
 		if (desiredLeftSpeed > 0) desiredLeftSpeed = 0;
-
-        	if (originalLeftSpeed > 0) originalLeftSpeed = 0;
-        	if (originalRightSpeed > 0) originalRightSpeed = 0;
 
 		if (time - lastBumperLogTime > 500) {
 			LOGd(2,"Bumper pressed, only allowing backwards movement!");
@@ -799,27 +722,27 @@ float formatCompassValue(int value) {
 
 void resetSensors() {
 
-	//compass
-	for (int i = 0; i < MAX_HEADING_HISTORY; i++) {
-		headingHistory[i] = -1;
-	}
+//	//compass
+//	for (int i = 0; i < MAX_HEADING_HISTORY; i++) {
+//		headingHistory[i] = -1;
+//	}
+//
+//	headingAvg = -1L;
+//	headingMax = -1000000;
+//	headingMin = 1000000;
 
-	headingAvg = -1L;
-	headingMax = -1000000;
-	headingMin = 1000000;
-
-	//AG
-	for (int i = 0; i < 6; ++i)
-	{
-		agValue[i] = 0;
-		for (int j = 0; j < MAX_AG_HISTORY; ++j)
-		{
-			agHistory[i][j] = -1;
-		}
-		agAvg[i] = -1L;
-		agMax[i] = -1000000;
-		agMin[i] = 1000000;
-	}
+//	//AG
+//	for (int i = 0; i < 6; ++i)
+//	{
+//		agValue[i] = 0;
+//		for (int j = 0; j < MAX_AG_HISTORY; ++j)
+//		{
+//			agHistory[i][j] = -1;
+//		}
+//		agAvg[i] = -1L;
+//		agMax[i] = -1000000;
+//		agMin[i] = 1000000;
+//	}
 
 	//current incidents
 	for (int i = 0; i < MAX_INCIDENT_COUNT; i++)
