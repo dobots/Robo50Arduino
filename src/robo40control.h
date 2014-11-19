@@ -61,6 +61,7 @@ A12 to A15 current sensing additional motors (A, B, C, D; elevator, pump, vacuum
 #include "log.h"
 //#include "digitalWriteFast.h"  //could be used to improve performance
 
+#define sgn(x) ((x < 0 )? (-1) : (1))
 
 // message constants
 #define HEADER 0xA5
