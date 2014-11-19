@@ -126,6 +126,7 @@ bool MOTOR_INVERTED[4] = {false, true, true, true};
 
 //// flash light
 #define FLASH_LIGHT 10
+// #define FLASH_ENABLED
 
 //// bumper
 #define BUMPER1 37

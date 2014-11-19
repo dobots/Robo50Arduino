@@ -753,7 +753,9 @@ int capSpeed(int value) {
 }
 
 void flashLight(int speed) {
+#ifdef FLASH_ENABLED
 	analogWrite(FLASH_LIGHT, speed);
+#endif
 }
 
 
