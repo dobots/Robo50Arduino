@@ -25,6 +25,7 @@ int agValue[6];
 //wheel motor / encoder variables
 unsigned long incidents[MAX_INCIDENT_COUNT];
 unsigned long lastcommand;
+bool manualCommand = false;
 int curLeftSpeed = 0;
 int curRightSpeed = 0;
 int desiredLeftSpeed = 0;
@@ -72,10 +73,8 @@ void setup() {
 	// pinMode(c_RightEncoderPinB, INPUT);      // sets pin B as input
 	// attachInterrupt(c_RightEncoderInterrupt, HandleRightMotorInterruptA, RISING);
 
-	pinMode(DIRECTION_LEFT_FW, OUTPUT);
-	pinMode(DIRECTION_LEFT_BW, OUTPUT);
-	pinMode(DIRECTION_RIGHT_FW, OUTPUT);
-	pinMode(DIRECTION_RIGHT_BW, OUTPUT);
+	pinMode(DIRECTION_RIGHT, OUTPUT);
+	pinMode(DIRECTION_LEFT, OUTPUT);
 
 	pinMode(DIRECTION_A, OUTPUT);
 	pinMode(DIRECTION_B, OUTPUT);
@@ -105,6 +104,8 @@ void setup() {
 	initLogging(&Serial);
 #endif
 
+	LOGd(1, "startup...");
+
 	///TODO: make pump work
     // timer for pump;
 	//Timer1.initialize(1000);
@@ -126,9 +127,9 @@ void setup() {
 	slaveAddress = HMC6352Address >> 1;   // This results in 0x21 as the address to pass to TWI
 
 	// setup accelero/gyro
-	accelgyro.initialize(); // initialize device
-	ag_connected = accelgyro.testConnection(); // verify connection
-	LOGd(3, ag_connected ? "MPU6050 connection successful" : "MPU6050 connection failed");
+//	accelgyro.initialize(); // initialize device
+//	ag_connected = accelgyro.testConnection(); // verify connection
+//	LOGd(3, ag_connected ? "MPU6050 connection successful" : "MPU6050 connection failed");
 
 	resetSensors(); // reset sensor history
 
@@ -140,11 +141,15 @@ void loop() {
 
 	receiveCommands();							//talky talky
 
-	drive();  									//wheels
-	for (int i = 1; i <= 4; i++) secdrive(i);	//other motors
+	if (!manualCommand) {
+		drive();  									//wheels
+	}
+	for (int i = 1; i <= 4; i++) {
+		secdrive(i);	//other motors
+	}
 
-	readCompass();								//get sensor data
-	readAG();
+//	readCompass();								//get sensor data
+//	readAG();
 
 }
 
@@ -152,19 +157,29 @@ void loop() {
 // communication functions
 
 void handleInput(int incoming) {
+	LOGd(1, "incoming: %c (%d)", incoming, incoming);
 	switch(incoming) {
 		case 'o': sendData(); LOGd(1, ""); break;
 
-		case 'q': lastcommand = millis(); desiredLeftSpeed = 0; desiredRightSpeed = 0; break;
-		case 'e': curLeftSpeed = 0; curRightSpeed = 0; desiredLeftSpeed = 0; desiredRightSpeed = 0;	break;
-		case 'w': lastcommand = millis(); desiredLeftSpeed = 200; desiredRightSpeed = 200; break;
-		case 's': lastcommand = millis(); desiredLeftSpeed = -200; desiredRightSpeed = -200; break;
-		case 'a': lastcommand = millis(); desiredLeftSpeed = -100; desiredRightSpeed = 100; break;
-		case 'd': lastcommand = millis(); desiredLeftSpeed = 100; desiredRightSpeed = -100; break;
+		case 'q': manualCommand = false; lastcommand = millis(); desiredLeftSpeed = 0; desiredRightSpeed = 0; break;
+		case 'e': manualCommand = false; curLeftSpeed = 0; curRightSpeed = 0; desiredLeftSpeed = 0; desiredRightSpeed = 0;	break;
+		case 'w': manualCommand = false; lastcommand = millis(); desiredLeftSpeed = 200; desiredRightSpeed = 200; break;
+		case 's': manualCommand = false; lastcommand = millis(); desiredLeftSpeed = -200; desiredRightSpeed = -200; break;
+		case 'a': manualCommand = false; lastcommand = millis(); desiredLeftSpeed = -100; desiredRightSpeed = 100; break;
+		case 'd': manualCommand = false; lastcommand = millis(); desiredLeftSpeed = 100; desiredRightSpeed = -100; break;
 
 		case 'f': flashLight(200); break;
 		case 'r': flashLight(0); break;
-
+/*
+		case '1': manualCommand = true; digitalWrite(DIRECTION_LEFT, HIGH); break;
+		case '2': manualCommand = true; digitalWrite(DIRECTION_LEFT, LOW); break;
+		case '3': manualCommand = true; digitalWrite(DIRECTION_RIGHT, HIGH); break;
+		case '4': manualCommand = true; digitalWrite(DIRECTION_RIGHT, LOW); break;  //pump; shouldnt work for now
+		case '5': manualCommand = true; analogWrite(PWM_LEFT, 200); break;
+		case '6': manualCommand = true; analogWrite(PWM_LEFT, 0); break;
+		case '7': manualCommand = true; analogWrite(PWM_RIGHT, 200); break;
+		case '8': manualCommand = true; analogWrite(PWM_RIGHT, 0); break;
+*/
 		case '1': desiredSpeedMotor[0] = 200; break;
 		case '2': desiredSpeedMotor[0] = 0; break;
 		case '3': desiredSpeedMotor[0] = -200; break;
@@ -517,6 +532,8 @@ void drive() {
 	unsigned long commandDifference = time - lastcommand;
 		//differences should underflow when time overflowed
 
+// ignore command timeouts when debugging
+#ifndef DEBUG
 	//time should be bigger than INCIDENTTIMEOUT b/c incidents are initialized to 0
 	//also note that outliers are ignored implicitly here: one incident doesnt do much at all
 	if ((commandDifference > COMMAND_TIMEOUT) || ((time > INCIDENT_TIMEOUT) && (incidentDifference < INCIDENT_TIMEOUT)))
@@ -534,13 +551,18 @@ void drive() {
 			lastIncidentLogTime = time;
 		}
 	}
+#endif
 
-	//So far so good, move proportionally closer to desired speed
-	int diffRightSpeed = desiredRightSpeed - curRightSpeed;
-    curRightSpeed += sgn(diffRightSpeed) * min(abs(diffRightSpeed), 40);
+	// So far so good, move proportionally closer to desired speed
+	// [19.11.14] no more ramping necessary with new hardware
+	//	int diffRightSpeed = desiredRightSpeed - curRightSpeed;
+	//     curRightSpeed += sgn(diffRightSpeed) * min(abs(diffRightSpeed), 40);
+	curRightSpeed = desiredRightSpeed;
 
-	int diffLeftSpeed = desiredLeftSpeed - curLeftSpeed;
-    curLeftSpeed += sgn(diffLeftSpeed) * min(abs(diffLeftSpeed), 40);
+	// [19.11.14] no more ramping necessary with new hardware
+	//	int diffLeftSpeed = desiredLeftSpeed - curLeftSpeed;
+	//     curLeftSpeed += sgn(diffLeftSpeed) * min(abs(diffLeftSpeed), 40);
+	curLeftSpeed = desiredLeftSpeed;
 
 #ifndef DEBUG
 	//finally check bumpers to disallow movement forward
@@ -564,29 +586,17 @@ void drive() {
 #endif
 
 	if (curLeftSpeed > 0) {
-		digitalWrite(DIRECTION_LEFT_FW, HIGH);
+		digitalWrite(DIRECTION_LEFT, HIGH);
 		//lastDirectionLeft = 1; //to let the encoder know which way we're going
 	} else {
-		digitalWrite(DIRECTION_LEFT_FW, LOW);
-	}
-	if (curLeftSpeed < 0) {
-		digitalWrite(DIRECTION_LEFT_BW, HIGH);
-		//lastDirectionLeft = -1; //to let the encoder know which way we're going
-	} else {
-		digitalWrite(DIRECTION_LEFT_BW, LOW);
+		digitalWrite(DIRECTION_LEFT, LOW);
 	}
 
 	if (curRightSpeed > 0) {
-		digitalWrite(DIRECTION_RIGHT_FW, HIGH);
+		digitalWrite(DIRECTION_RIGHT, HIGH);
 		//lastDirectionRight = 1; //to let the encoder know which way we're going
 	} else {
-		digitalWrite(DIRECTION_RIGHT_FW, LOW);
-	}
-	if (curRightSpeed < 0) {
-		digitalWrite(DIRECTION_RIGHT_BW, HIGH);
-		//lastDirectionRight = -1; //to let the encoder know which way we're going
-	} else {
-		digitalWrite(DIRECTION_RIGHT_BW, LOW);
+		digitalWrite(DIRECTION_RIGHT, LOW);
 	}
 
 	if ((curRightSpeed | curLeftSpeed) != 0) {
@@ -594,6 +604,9 @@ void drive() {
 	} else {
 		flashLight(0);
 	}
+
+	// [19.11.14] temporarily added to partially solve direction switch problem
+	delay(100);
 
 	analogWrite(PWM_LEFT, abs(curLeftSpeed));   //PWM Speed Control
 	analogWrite(PWM_RIGHT, abs(curRightSpeed));   //PWM Speed Control
@@ -633,12 +646,17 @@ void secdrive(int motor) {
 		curSpeedMotor[motor_id] = 0;
 	}
 
+	int diffSpeed = desiredSpeedMotor[motor_id] - curSpeedMotor[motor_id];
+	curSpeedMotor[motor_id] += sgn(diffSpeed) * min(abs(diffSpeed), 20);
+
+/*
 	//ok, now move closer to desired speed
 	if (desiredSpeedMotor[motor_id] < curSpeedMotor[motor_id]) {
 		curSpeedMotor[motor_id]--;
 	} else if (desiredSpeedMotor[motor_id] > curSpeedMotor[motor_id]) {
 		curSpeedMotor[motor_id]++;
 	}
+*/
 
 	setMotor(motor_id);
 

@@ -101,7 +101,7 @@ int CURRENT_SENSE_MOTORS[4] = {CURRENT_SENSE_A, CURRENT_SENSE_B, CURRENT_SENSE_C
 #define DIRECTION_C 47	// vacuum, both directions ok
 #define DIRECTION_D 46 	// brush, + direction -> OK, - direction -> wrong
 int DIRECTION_MOTORS[4] = {DIRECTION_A, DIRECTION_B, DIRECTION_C, DIRECTION_D};
-bool DIRECTION_INVERTED[4] = {false, false, true, true};
+bool DIRECTION_INVERTED[4] = {false, false, true, false};
 
 #define CURRENT_LIMIT_A 1000
 #define CURRENT_LIMIT_B 1000
@@ -109,21 +109,22 @@ bool DIRECTION_INVERTED[4] = {false, false, true, true};
 #define CURRENT_LIMIT_D 1000
 int CURRENT_LIMIT_MOTORS[4] = {CURRENT_LIMIT_A, CURRENT_LIMIT_B, CURRENT_LIMIT_C, CURRENT_LIMIT_D};
 
-bool MOTOR_INVERTED[4] = {false, true, true, true};
+bool MOTOR_INVERTED[4] = {false, false, false, false};
 
 //// wheel motors
 #define PWM_LEFT 8
 #define PWM_RIGHT 9
-#define DIRECTION_LEFT_FW 27
-#define DIRECTION_LEFT_BW 29
-#define DIRECTION_RIGHT_FW 25
-#define DIRECTION_RIGHT_BW 23
+#define DIRECTION_RIGHT 2
+#define DIRECTION_LEFT 3
 #define CURRENT_SENSE_LEFT A0
 #define CURRENT_SENSE_RIGHT A2
 #define CURRENT_LIMIT_DRIVE 1000
 #define COMMAND_TIMEOUT 5000    ///TODO: set this to 500ms or so for use with ROS
 #define INCIDENT_TIMEOUT 5000
 #define MAX_INCIDENT_COUNT 50
+#define BATTERY_SENSE A3
+
+#define SELF_DESTRUCT 13
 
 //// flash light
 #define FLASH_LIGHT 10
