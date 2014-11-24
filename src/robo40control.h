@@ -114,8 +114,8 @@ bool MOTOR_INVERTED[4] = {false, false, false, false};
 //// wheel motors
 #define PWM_LEFT 8
 #define PWM_RIGHT 9
-#define DIRECTION_RIGHT 2
-#define DIRECTION_LEFT 3
+#define DIRECTION_RIGHT 2	// LOW -> FORWARD, HIGH -> BACKWARD
+#define DIRECTION_LEFT 3	// LOW -> FORWARD, HIGH -> BACKWARD
 #define CURRENT_SENSE_LEFT A0
 #define CURRENT_SENSE_RIGHT A2
 #define CURRENT_LIMIT_DRIVE 1000
@@ -131,8 +131,8 @@ bool MOTOR_INVERTED[4] = {false, false, false, false};
 // #define FLASH_ENABLED
 
 //// bumper
-#define BUMPER1 37
-#define BUMPER2 35
+#define BUMPER_LEFT 35
+#define BUMPER_RIGHT 37
 
 //// accelero / gyro
 #define MAX_AG_HISTORY 5
@@ -191,7 +191,7 @@ void drive();
 void secdrive(int motor);
 int capSpeed(int value);
 void flashLight(int speed);
-void setMotor(int motor_id);
+void setMotorSpeed(int motor_id);
 void stop(int motor);
 
 //helper functions

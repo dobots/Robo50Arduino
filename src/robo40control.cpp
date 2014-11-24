@@ -94,8 +94,8 @@ void setup() {
 
 	pinMode(FLASH_LIGHT, OUTPUT);
 
-    pinMode(BUMPER1, INPUT);
-    pinMode(BUMPER2, INPUT);
+    pinMode(BUMPER_LEFT, INPUT);
+    pinMode(BUMPER_RIGHT, INPUT);
 
 	//connect to computer, uses pin 0 and 1
 	Serial.begin(115200);
@@ -127,9 +127,11 @@ void setup() {
 	slaveAddress = HMC6352Address >> 1;   // This results in 0x21 as the address to pass to TWI
 
 	// setup accelero/gyro
-//	accelgyro.initialize(); // initialize device
-//	ag_connected = accelgyro.testConnection(); // verify connection
-//	LOGd(3, ag_connected ? "MPU6050 connection successful" : "MPU6050 connection failed");
+	accelgyro.initialize(); // initialize device
+	ag_connected = accelgyro.testConnection(); // verify connection
+	LOGd(3, ag_connected ? "MPU6050 connection successful" : "MPU6050 connection failed");
+
+	// y axis is the axis to use
 
 	resetSensors(); // reset sensor history
 
@@ -149,7 +151,7 @@ void loop() {
 	}
 
 //	readCompass();								//get sensor data
-//	readAG();
+	readAG();
 
 }
 
@@ -170,7 +172,7 @@ void handleInput(int incoming) {
 
 		case 'f': flashLight(200); break;
 		case 'r': flashLight(0); break;
-/*
+
 		case '1': manualCommand = true; digitalWrite(DIRECTION_LEFT, HIGH); break;
 		case '2': manualCommand = true; digitalWrite(DIRECTION_LEFT, LOW); break;
 		case '3': manualCommand = true; digitalWrite(DIRECTION_RIGHT, HIGH); break;
@@ -179,16 +181,16 @@ void handleInput(int incoming) {
 		case '6': manualCommand = true; analogWrite(PWM_LEFT, 0); break;
 		case '7': manualCommand = true; analogWrite(PWM_RIGHT, 200); break;
 		case '8': manualCommand = true; analogWrite(PWM_RIGHT, 0); break;
-*/
-		case '1': desiredSpeedMotor[0] = 200; break;
-		case '2': desiredSpeedMotor[0] = 0; break;
-		case '3': desiredSpeedMotor[0] = -200; break;
-		case '4': desiredSpeedMotor[1] = 200; break;  //pump; shouldnt work for now
-		case '5': desiredSpeedMotor[1] = 0; break;
-		case '6': desiredSpeedMotor[2] = 255; break;
-		case '7': desiredSpeedMotor[2] = 0; break;
-		case '8': desiredSpeedMotor[3] = 255; break;
-		case '9': desiredSpeedMotor[3] = 0; break;
+
+		// case '1': desiredSpeedMotor[0] = 200; break;
+		// case '2': desiredSpeedMotor[0] = 0; break;
+		// case '3': desiredSpeedMotor[0] = -200; break;
+		// case '4': desiredSpeedMotor[1] = 200; break;  //pump; shouldnt work for now
+		// case '5': desiredSpeedMotor[1] = 0; break;
+		// case '6': desiredSpeedMotor[2] = 255; break;
+		// case '7': desiredSpeedMotor[2] = 0; break;
+		// case '8': desiredSpeedMotor[3] = 255; break;
+		// case '9': desiredSpeedMotor[3] = 0; break;
 
 		case '0': stop(0); stop(1); stop(2); stop(3); break;
 
@@ -319,8 +321,8 @@ void sendData() {
 
 	// BUMPER
 	group = aJson.createObject();
-	aJson.addNumberToObject(group, "left", digitalRead(BUMPER1));
-	aJson.addNumberToObject(group, "right", digitalRead(BUMPER2));
+	aJson.addNumberToObject(group, "left", digitalRead(BUMPER_LEFT));
+	aJson.addNumberToObject(group, "right", digitalRead(BUMPER_RIGHT));
 	aJson.addItemToObject(data, "bumper", group);
 
 	// COMPASS
@@ -554,23 +556,22 @@ void drive() {
 #endif
 
 	// So far so good, move proportionally closer to desired speed
+	int diffRightSpeed = desiredRightSpeed - curRightSpeed;
+    curRightSpeed += sgn(diffRightSpeed) * min(abs(diffRightSpeed), 40);
 	// [19.11.14] no more ramping necessary with new hardware
-	//	int diffRightSpeed = desiredRightSpeed - curRightSpeed;
-	//     curRightSpeed += sgn(diffRightSpeed) * min(abs(diffRightSpeed), 40);
-	curRightSpeed = desiredRightSpeed;
+	// curRightSpeed = desiredRightSpeed;
 
+	int diffLeftSpeed = desiredLeftSpeed - curLeftSpeed;
+    curLeftSpeed += sgn(diffLeftSpeed) * min(abs(diffLeftSpeed), 40);
 	// [19.11.14] no more ramping necessary with new hardware
-	//	int diffLeftSpeed = desiredLeftSpeed - curLeftSpeed;
-	//     curLeftSpeed += sgn(diffLeftSpeed) * min(abs(diffLeftSpeed), 40);
-	curLeftSpeed = desiredLeftSpeed;
+	// curLeftSpeed = desiredLeftSpeed;
 
 #ifndef DEBUG
-	//finally check bumpers to disallow movement forward
-	int bump1 = digitalRead(BUMPER1);
-	int bump2 = digitalRead(BUMPER2);
+	//finally check bumpers to prevent movement forward
+	int bumper_ok = digitalRead(BUMPER_LEFT) | digitalRead(BUMPER_RIGHT);
 
-	if ((bump1 == 0) || (bump2 == 0)) //bumper pressed
-	{
+	// if ((bump1 == 0) || (bump2 == 0)) //bumper pressed
+	if (!bumper_ok) {
 		//blunty overwrite any intentions for going forward, then proceed as usual
 		if (curRightSpeed > 0) curRightSpeed = 0;
 		if (curLeftSpeed > 0) curLeftSpeed = 0;
@@ -586,17 +587,17 @@ void drive() {
 #endif
 
 	if (curLeftSpeed > 0) {
-		digitalWrite(DIRECTION_LEFT, HIGH);
+		digitalWrite(DIRECTION_LEFT, LOW);
 		//lastDirectionLeft = 1; //to let the encoder know which way we're going
 	} else {
-		digitalWrite(DIRECTION_LEFT, LOW);
+		digitalWrite(DIRECTION_LEFT, HIGH);
 	}
 
 	if (curRightSpeed > 0) {
-		digitalWrite(DIRECTION_RIGHT, HIGH);
+		digitalWrite(DIRECTION_RIGHT, LOW);
 		//lastDirectionRight = 1; //to let the encoder know which way we're going
 	} else {
-		digitalWrite(DIRECTION_RIGHT, LOW);
+		digitalWrite(DIRECTION_RIGHT, HIGH);
 	}
 
 	if ((curRightSpeed | curLeftSpeed) != 0) {
@@ -658,14 +659,14 @@ void secdrive(int motor) {
 	}
 */
 
-	setMotor(motor_id);
+	setMotorSpeed(motor_id);
 
 	//LOGd(3, "curSpeed: %d, sense: %d, report: %d",
 	//	curSpeedMotor[motor_id], currentSenseMotor[motor_id], reportCSMotor[motor_id]);
 
 }
 
-void setMotor(int motor_id) {
+void setMotorSpeed(int motor_id) {
 
 	if (((curSpeedMotor[motor_id] > 0) && (!DIRECTION_INVERTED[motor_id])) ||
 		((curSpeedMotor[motor_id] < 0) && DIRECTION_INVERTED[motor_id]) ) {   //set the direction of the motor
@@ -686,7 +687,7 @@ void stop(int motor_id) {
 	if ((motor_id < 1) || (motor_id > 4)) return;
 	curSpeedMotor[motor_id] = 0;
 	desiredSpeedMotor[motor_id] = 0;
-	setMotor(motor_id);
+	setMotorSpeed(motor_id);
 }
 
 int capSpeed(int value) {
