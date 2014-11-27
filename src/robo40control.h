@@ -10,62 +10,67 @@ TODO
 
 */
 
-
 /*********************************
 *******      pinout      *********
 **********************************
 
-0 and 1 are for serial to pc
-2 is for accel interrupt
-3 is free (PWM / interrupt)
-4 to 7, additional motors PWM
-8 and 9, wheels motors PWM
-10 flashlight
-11 free (PWM)
-12 and 13 free (PWM)
-14 and 15 are reserved for bluetooth (serial channel)
-16 and 17 free (serial channel)
-18 and 19 encoder interrupts
-20 and 21 for I2C Wire library
-22 free
-23 right wheel direction backward
-24 free
-25 right wheel direction forward
-26 free
-27 left wheel direction forward
-28 free
-29 left wheel direction backward
-30 to 34 free
-35 bumper sensor 1
-36 free
-37 bumper sensor 2
-38 to 43 free
-44 motor B direction (pump)
-45 motor A direction (elevator)
-46 motor D direction (brush)
-47 motor C direction (vacuum)
-48 to 53 free
-A0 and A1 current sensing left wheel motor driver
-A2 and A3 current sensing right wheel motor driver
-A4 to A7 free
-A8 and A9 wheel encoders second (quadrature) line
-A10 and A11 free
-A12 to A15 current sensing additional motors (A, B, C, D; elevator, pump, vacuum, brush respectively)
+0 - 1		serial (rx, tx)
+2 - 3 		direction wheels (right, left)
+4 - 7 		motors PWM (elevator, pump, vacuum, brush) 
+8 - 9 		wheel PWM (left, right)
+10			flash light
+11			FREE (PWM)
+12			FREE (PWM)
+13 			power off
+14 - 15		bluetooth (tx, rx)
+16 - 17		FREE (serial2)
+18 - 19		FREE (serial1)
+20 - 21		I2C Wire library
+22			FREE
+23			FREE
+24 - 25		right encoder (channel 1, 2)
+26 - 27 	left encoder (channel 1, 2)
+28			FREE
+-
+34			FREE
+35			bumper left
+36			FREE
+37			bumper right
+38			FREE
+-
+43			FREE
+44 - 47 	direction motors (elevator, pump, vacuum, brush)
+48			FREE
+-
+53			FREE
+
+A0 			current sensing left wheel
+A1			FREE
+A2 			current sensing right wheel
+A3 			battery sense
+A4 - A7 	current sensing motors (elevator, pump, vacuum, brush)
+A8			FREE
+-
+A11			FREE
+DAC0		FREE
+DAC1		FREE
 
 *****************************************/
+
 #include "Arduino.h"
 #include "Wire.h"
 #include "aJSON.h"
 #include "MPU6050.h"
-#include "TimerOne.h"
 #include "log.h"
 //#include "digitalWriteFast.h"  //could be used to improve performance
 
-#define sgn(x) ((x < 0 )? (-1) : (1))
+#define sgn(x) ((x < 0 ) ? (-1) : (1))
 
+//// message protocol //////////
 // message constants
 #define HEADER 0xA5
 
+// message type enum
 #define SENSOR_DATA 0
 #define DRIVE_COMMAND 1
 #define MOTOR_COMMAND 2
@@ -73,69 +78,99 @@ A12 to A15 current sensing additional motors (A, B, C, D; elevator, pump, vacuum
 #define DISCONNECT 4
 #define SENSOR_REQUEST 5
 
+// parameter type enum
 #define INT_T 0
 #define DOUBLE_T 1
 #define STRING_T 2
 #define BOOL_T 3
 
-//// motors
+//// general ///////////////////
+#define COMMAND_TIMEOUT 5000    ///TODO: set this to 500ms or so for use with ROS
+#define INCIDENT_TIMEOUT 5000
+#define MAX_INCIDENT_COUNT 50
+
+// battery pin
+#define BATTERY_SENSE A3
+
+// self destruct pin
+#define SELF_DESTRUCT 13
+
+//// motors ////////////////////
+// motor enum
 #define ELEVATOR 0 //these numbers + 1 is how they are used in the cpp file
 #define PUMP 1
 #define VACUUM 2
 #define BRUSH 3
 
+// pwm pins
 #define PWM_A 4
 #define PWM_B 5
 #define PWM_C 6
 #define PWM_D 7
 int PWM_MOTORS[4] = {PWM_A, PWM_B, PWM_C, PWM_D};
 
-#define CURRENT_SENSE_A A12
-#define CURRENT_SENSE_B A13
-#define CURRENT_SENSE_C A14
-#define CURRENT_SENSE_D A15
+// current sense pins
+#define CURRENT_SENSE_A A4
+#define CURRENT_SENSE_B A5
+#define CURRENT_SENSE_C A6
+#define CURRENT_SENSE_D A7
 int CURRENT_SENSE_MOTORS[4] = {CURRENT_SENSE_A, CURRENT_SENSE_B, CURRENT_SENSE_C, CURRENT_SENSE_D};
 
+// direction pins
 #define DIRECTION_A 45  // elevator, + direction -> UP, - direction -> DOWN
 #define DIRECTION_B 44	// pump
 #define DIRECTION_C 47	// vacuum, both directions ok
 #define DIRECTION_D 46 	// brush, + direction -> OK, - direction -> wrong
 int DIRECTION_MOTORS[4] = {DIRECTION_A, DIRECTION_B, DIRECTION_C, DIRECTION_D};
+
+// define direction to be inverted 
+// 		false 	-> 
+//		true 	-> 
 bool DIRECTION_INVERTED[4] = {false, false, true, false};
 
+// current limit constant
 #define CURRENT_LIMIT_A 1000
 #define CURRENT_LIMIT_B 1000
 #define CURRENT_LIMIT_C 1000
 #define CURRENT_LIMIT_D 1000
 int CURRENT_LIMIT_MOTORS[4] = {CURRENT_LIMIT_A, CURRENT_LIMIT_B, CURRENT_LIMIT_C, CURRENT_LIMIT_D};
 
+// define motor to be inverted 
+// 		false 	-> LOW = OFF, HIGH = ON
+//		true 	-> LOW = ON, HIGH = OFF
 bool MOTOR_INVERTED[4] = {false, false, false, false};
 
-//// wheel motors
+//// wheel motors //////////////
+// pwm pins
 #define PWM_LEFT 8
 #define PWM_RIGHT 9
+
+// direction pins
 #define DIRECTION_RIGHT 2	// LOW -> FORWARD, HIGH -> BACKWARD
 #define DIRECTION_LEFT 3	// LOW -> FORWARD, HIGH -> BACKWARD
+
+// current sense pins
 #define CURRENT_SENSE_LEFT A0
 #define CURRENT_SENSE_RIGHT A2
+
+// current limit constant
 #define CURRENT_LIMIT_DRIVE 1000
-#define COMMAND_TIMEOUT 5000    ///TODO: set this to 500ms or so for use with ROS
-#define INCIDENT_TIMEOUT 5000
-#define MAX_INCIDENT_COUNT 50
-#define BATTERY_SENSE A3
 
-#define SELF_DESTRUCT 13
-
-//// flash light
+//// flash light ///////////////
+// flash light pin
 #define FLASH_LIGHT 10
 // #define FLASH_ENABLED
 
-//// bumper
+//// bumper ////////////////////
+// bumper pins
 #define BUMPER_LEFT 35
 #define BUMPER_RIGHT 37
 
-//// accelero / gyro
+//// accelero / gyro ///////////
+// max number of elements in history
 #define MAX_AG_HISTORY 5
+
+// enum for accelero / gyro elements
 #define AX 0
 #define AY 1
 #define AZ 2
@@ -143,32 +178,32 @@ bool MOTOR_INVERTED[4] = {false, false, false, false};
 #define GY 4
 #define GZ 5
 
+// accelerometer range
 #define ACCELEROMETER_RANGE 2.0 // +- 2g
+// gyroscope range
 #define GYROSCOPE_RANGE 250.0   // +- 250 deg/s
 
-//// compass
-#define MAX_HEADING_HISTORY 5
+//// compass ///////////////////
+// max cnumber of elements in history
+// #define MAX_HEADING_HISTORY 5
 
-//// right encoder
-// #define c_RightEncoderInterrupt 4 //(interrupt 4 is on pin 19)
-// #define c_RightEncoderPinA 19
-// #define c_RightEncoderPinB A8
-// //#define RightEncoderIsReversed   //example, just to let you know this is checked in the cpp file
-// volatile bool _RightEncoderBSet; //required for working quadrature encoder
+//// encoder ///////////////////
+// right encoder pins
+#define RIGHT_ENCODER_A 24
+#define RIGHT_ENCODER_B 25
 
-//// left encoder
-// #define c_LeftEncoderInterrupt 5   //(interrupt 5 is on pin 18)
-// #define c_LeftEncoderPinA 18
-// #define c_LeftEncoderPinB A9
-// #define LeftEncoderIsReversed
-// volatile bool _LeftEncoderBSet;
-
+// left encoder pins
+#define LEFT_ENCODER_A 26
+#define LEFT_ENCODER_B 27
 
 ////////////////////////////////
+////////////////////////////////
+
+// main
 void setup();
 void loop();
 
-//communication
+// communication
 void receiveCommands();
 void handleControlCommand(aJsonObject* json);
 void handleDisconnect(aJsonObject* json);
@@ -178,15 +213,13 @@ void handleSensorRequest(aJsonObject* json);
 void sendData();
 void handleInput(int incoming);
 
-//sensors
+// sensors
 void senseMotor(int motor);
 void senseLeftRight();
 void readCompass();
 void readAG();
-void HandleLeftMotorInterruptA();
-void HandleRightMotorInterruptA();
 
-//actuators
+// actuators
 void drive();
 void secdrive(int motor);
 int capSpeed(int value);
@@ -194,13 +227,13 @@ void flashLight(int speed);
 void setMotorSpeed(int motor_id);
 void stop(int motor);
 
-//helper functions
+// helper functions
 void pushFront(int val, int* valueList, int len);
 void pushIncident();
 void pushMotorIncident(int motor_id);
 float formatAcceleroValue(int value);
 float formatGyroValue(int value);
-float formatCompassValue(int value);
+// float formatCompassValue(int value);
 void resetSensors();
 int getID(aJsonObject* json);
 void decodeMotorCommand(aJsonObject* json, int* motor_id, int* speed);

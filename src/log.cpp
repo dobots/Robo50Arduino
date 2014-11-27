@@ -6,19 +6,19 @@
 // GLOBAL VAR
 // --------------------------------------------------------------------
 
-#if defined(DEBUG) || defined(DEBUG_BT)
-	bool debug_on = true;
-#else
-	bool debug_on = false;
-#endif
+// #if defined(DEBUG) || defined(DEBUG_BT)
+// 	bool debug_on = true;
+// #else
+// 	bool debug_on = false;
+// #endif
 
-int log_level = 3;
+// int log_level = 3;
 
 // --------------------------------------------------------------------
 // LOCAL VAR
 // --------------------------------------------------------------------
 
-Stream *serialLine = NULL;
+// Stream *serialLine = NULL;
 
 // --------------------------------------------------------------------
 // FUNCTIONS
@@ -28,43 +28,43 @@ Stream *serialLine = NULL;
 // create a output function
 // This works because Serial.write, although of
 // type virtual, already exists.
-int uart_write (char c, FILE *stream)
-{
-	if (serialLine != NULL) {
-		serialLine->write(c) ;
-		return 0;
-	}
-}
+// int uart_write (char c, FILE *stream)
+// {
+// 	if (serialLine != NULL) {
+// 		serialLine->write(c) ;
+// 		return 0;
+// 	}
+// }
 
-void initLogging(Stream *stream) {
-	serialLine = stream;
+// void initLogging(Stream *stream) {
+// 	serialLine = stream;
 
-	fdevopen( &uart_write, 0 );
-}
+// 	// fdevopen( &uart_write, 0 );
+// }
 
-void LOGi(const int loglevel, const char* fmt, ... )
-{
-	if (serialLine == NULL) return;
+// void LOGi(const int loglevel, const char* fmt, ... )
+// {
+// 	if (serialLine == NULL) return;
 
-	if (loglevel <= log_level) {
-		va_list argptr;
-		va_start(argptr, fmt);
-		vprintf(fmt, argptr);
-		va_end(argptr);
-		serialLine->println("");
-	}
-}
+// 	if (loglevel <= log_level) {
+// 		va_list argptr;
+// 		va_start(argptr, fmt);
+// 		vprintf(fmt, argptr);
+// 		va_end(argptr);
+// 		serialLine->println("");
+// 	}
+// }
 
-void LOGd(const int loglevel, const char* fmt, ... )
-{
-	if (serialLine == NULL) return;
+// void LOGd(const int loglevel, const char* fmt, ... )
+// {
+// 	if (serialLine == NULL) return;
 
-	if (debug_on && loglevel <= log_level) {
-		va_list argptr;
-		va_start(argptr, fmt);
-		vprintf(fmt, argptr);
-		va_end(argptr);
-		serialLine->println("");
-	}
-}
+// 	if (debug_on && loglevel <= log_level) {
+// 		va_list argptr;
+// 		va_start(argptr, fmt);
+// 		vprintf(fmt, argptr);
+// 		va_end(argptr);
+// 		serialLine->println("");
+// 	}
+// }
 

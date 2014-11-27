@@ -1,5 +1,6 @@
 #include "debug.h"
 #include "robo40control.h"
+#include "Encoder.h"
 
 // JSON message is of the format:
 // {"compass":{"heading":119.00000},"accelero":{"x":0.04712,"y":0.00049,"z":0.97757},"gyro":{"x":-0.39674,"y":-1.95318,"z":-1.65563}}
@@ -7,16 +8,16 @@
 aJsonStream serial_stream(&Serial);
 
 // compass and accelero variables
-int HMC6352Address = 0x42;
-int slaveAddress; // This is calculated in the setup() function
-byte headingData[2];
-int headingValue;
+// int HMC6352Address = 0x42;
+// int slaveAddress; // This is calculated in the setup() function
+// byte headingData[2];
+// int headingValue;
 //int headingHistory[MAX_HEADING_HISTORY];
 //long headingAvg = -1L;
 //int headingMax = -1;
 //int headingMin = 10000;
 bool ag_connected = false;
-int agValue[6];
+int16_t agValue[6];
 //int agHistory[6][MAX_AG_HISTORY];
 //long agAvg[6];
 //int agMax[6];
@@ -52,6 +53,10 @@ int msgCounter;
 // AD0 low = 0x68 (default for InvenSense evaluation board)
 // AD0 high = 0x69
 MPU6050 accelgyro;
+
+// Encoder
+Encoder leftEncoder(LEFT_ENCODER_A, LEFT_ENCODER_B);
+Encoder rightEncoder(RIGHT_ENCODER_A, RIGHT_ENCODER_B);
 
 // --------------------------------------------------------------------
 void setup() {
@@ -100,9 +105,9 @@ void setup() {
 	//connect to computer, uses pin 0 and 1
 	Serial.begin(115200);
 
-#ifdef DEBUG
-	initLogging(&Serial);
-#endif
+// #ifdef DEBUG
+// 	initLogging(&Serial);
+// #endif
 
 	LOGd(1, "startup...");
 
@@ -114,22 +119,22 @@ void setup() {
 	// connection to compass, uses pins 20 and 21
 	Wire.begin();
 
-#ifdef DEBUG_BT
-	// connect to bluetooth, uses pin 14 and 15
-	Serial3.begin(115200);
-	initLogging(&Serial3);
-#endif
+// #ifdef DEBUG_BT
+// 	// connect to bluetooth, uses pin 14 and 15
+// 	Serial3.begin(115200);
+// 	initLogging(&Serial3);
+// #endif
 
 	// setup compass
 	// Shift the device's documented slave address (0x42) 1 bit right
 	// This compensates for how the TWI library only wants the
 	// 7 most significant bits (with the high bit padded with 0)
-	slaveAddress = HMC6352Address >> 1;   // This results in 0x21 as the address to pass to TWI
+	// slaveAddress = HMC6352Address >> 1;   // This results in 0x21 as the address to pass to TWI
 
 	// setup accelero/gyro
-	accelgyro.initialize(); // initialize device
-	ag_connected = accelgyro.testConnection(); // verify connection
-	LOGd(3, ag_connected ? "MPU6050 connection successful" : "MPU6050 connection failed");
+	// accelgyro.initialize(); // initialize device
+	// ag_connected = accelgyro.testConnection(); // verify connection
+	// LOGd(3, ag_connected ? "MPU6050 connection successful" : "MPU6050 connection failed");
 
 	// y axis is the axis to use
 
@@ -139,7 +144,7 @@ void setup() {
 }
 
 void loop() {
-//	sendData();
+	// sendData();
 
 	receiveCommands();							//talky talky
 
@@ -194,9 +199,9 @@ void handleInput(int incoming) {
 
 		case '0': stop(0); stop(1); stop(2); stop(3); break;
 
-		case 'l': log_level = (log_level+1) % 4; LOGd(0, "loglevel: %d", log_level); break;
+		// case 'l': log_level = (log_level+1) % 4; LOGd(0, "loglevel: %d", log_level); break;
 
-		default: LOGd(1, "incoming: %c (%d)", incoming, incoming); break;
+		// default: LOGd(1, "incoming: %c (%d)", incoming, incoming); break;
 	}
 }
 
@@ -326,9 +331,9 @@ void sendData() {
 	aJson.addItemToObject(data, "bumper", group);
 
 	// COMPASS
-	group = aJson.createObject();
-	aJson.addNumberToObject(group, "heading", formatCompassValue(headingValue));
-	aJson.addItemToObject(data, "compass", group);
+	// group = aJson.createObject();
+	// aJson.addNumberToObject(group, "heading", formatCompassValue(headingValue));
+	// aJson.addItemToObject(data, "compass", group);
 
 	// ACCELERO
 	group = aJson.createObject();
@@ -343,6 +348,12 @@ void sendData() {
 	aJson.addNumberToObject(group, "y", formatGyroValue(agValue[GY]));
 	aJson.addNumberToObject(group, "z", formatGyroValue(agValue[GZ]));
 	aJson.addItemToObject(data, "gyro", group);
+
+	// ENCODER
+	group = aJson.createObject();
+	aJson.addNumberToObject(group, "left", (int)leftEncoder.read());
+	aJson.addNumberToObject(group, "right", (int)rightEncoder.read());
+	aJson.addItemToObject(data, "odom", group);
 
 	// WHEELS
 	group = aJson.createObject();
@@ -430,48 +441,48 @@ void senseMotor(int motor) {
 	reportCSMotor[motor] = max(reportCSMotor[motor], currentSenseMotor[motor]);
 }
 
-void readCompass() {
-// Send a "A" command to the HMC6352
-// This requests the current heading data
-	Wire.beginTransmission(slaveAddress);
-	Wire.write("A");              // The "Get Data" command
-	Wire.endTransmission();
-	delay(2);                   // The HMC6352 needs at least a 70us (microsecond) delay after this command.
-	// Read the 2 heading bytes, MSB first. The resulting 16bit word is the compass heading in 10th's of a degree
-	// For example: a heading of 1345 would be 134.5 degrees
-	Wire.requestFrom(slaveAddress, 2);        // Request the 2 byte heading (MSB comes first)
-	int i = 0;
-	while(Wire.available() && i < 2)
-	{
-		headingData[i] = Wire.read();
-		i++;
-	}
-	headingValue = headingData[0]*256 + headingData[1];  // Put the MSB and LSB together
+// void readCompass() {
+// // Send a "A" command to the HMC6352
+// // This requests the current heading data
+// 	Wire.beginTransmission(slaveAddress);
+// 	Wire.write("A");              // The "Get Data" command
+// 	Wire.endTransmission();
+// 	delay(2);                   // The HMC6352 needs at least a 70us (microsecond) delay after this command.
+// 	// Read the 2 heading bytes, MSB first. The resulting 16bit word is the compass heading in 10th's of a degree
+// 	// For example: a heading of 1345 would be 134.5 degrees
+// 	Wire.requestFrom(slaveAddress, 2);        // Request the 2 byte heading (MSB comes first)
+// 	int i = 0;
+// 	while(Wire.available() && i < 2)
+// 	{
+// 		headingData[i] = Wire.read();
+// 		i++;
+// 	}
+// 	headingValue = headingData[0]*256 + headingData[1];  // Put the MSB and LSB together
 
-//	pushFront(headingValue, headingHistory, MAX_HEADING_HISTORY);
-//
-//	//calculate new min / max values
-//	if (headingValue > headingMax) {
-//		headingMax = headingValue;
-//	}
-//
-//	if (headingValue < headingMin) {
-//		headingMin = headingValue;
-//	}
-//
-//	//calculate new rolling average
-//	long nHeadingAvg = 0L;
-//	int elements = 0;
-//	for (int i = 0; i < MAX_HEADING_HISTORY; i++)
-//	{
-//		if (headingHistory[i] == -1.0) continue;
-//		elements++;
-//		nHeadingAvg += headingHistory[i];
-//	}
-//
-//	headingAvg = (long) nHeadingAvg / elements;
+// //	pushFront(headingValue, headingHistory, MAX_HEADING_HISTORY);
+// //
+// //	//calculate new min / max values
+// //	if (headingValue > headingMax) {
+// //		headingMax = headingValue;
+// //	}
+// //
+// //	if (headingValue < headingMin) {
+// //		headingMin = headingValue;
+// //	}
+// //
+// //	//calculate new rolling average
+// //	long nHeadingAvg = 0L;
+// //	int elements = 0;
+// //	for (int i = 0; i < MAX_HEADING_HISTORY; i++)
+// //	{
+// //		if (headingHistory[i] == -1.0) continue;
+// //		elements++;
+// //		nHeadingAvg += headingHistory[i];
+// //	}
+// //
+// //	headingAvg = (long) nHeadingAvg / elements;
 
-}
+// }
 
 void readAG() {
 
@@ -507,6 +518,43 @@ void readAG() {
 //		agAvg[j] = (long) average /  elements;
 //	}
 }
+
+// Interrupt service routines for the left motor's quadrature encoder
+// void HandleLeftMotorInterruptA() {
+// 	//for managing with 1 channel encoder (really doesnt work at all)
+// 	//#ifdef LeftEncoderIsReversed
+// 	// _LeftEncoderTicks -= lastDirectionLeft;
+// 	// #else
+// 	// _LeftEncoderTicks += lastDirectionLeft;
+// 	//#endif
+// 	//for working 2channel encoder
+// 	// Test transition; since the interrupt will only fire on 'rising' we don't need to read pin A
+// 	_LeftEncoderBSet = analogRead(c_LeftEncoderPinB) < 750 ? false : true; // read the input pin
+// 	// and adjust counter + if A leads B
+// 	#ifdef LeftEncoderIsReversed
+// 		_LeftEncoderTicks -= _LeftEncoderBSet ? -1 : +1;
+// 	#else
+// 		_LeftEncoderTicks += _LeftEncoderBSet ? -1 : +1;
+// 	#endif
+// }
+// Interrupt service routines for the right motor's quadrature encoder
+// void HandleRightMotorInterruptA() {
+// 	//for managing with 1 channel encoder (really doesnt work at all)
+// 	//#ifdef RightEncoderIsReversed
+// 	// _RightEncoderTicks -= lastDirectionRight;
+// 	//#else
+// 	// _RightEncoderTicks += lastDirectionRight;
+// 	//#endif
+// 	//for working 2channel encoder
+// 	// Test transition; since the interrupt will only fire on 'rising' we don't need to read pin A
+// 	_RightEncoderBSet = analogRead(c_RightEncoderPinB) < 750 ? false : true; // read the input pin //digitalReadFast
+// 	// and adjust counter + if A leads B
+// 	#ifdef RightEncoderIsReversed
+// 		_RightEncoderTicks -= _RightEncoderBSet ? -1 : +1;
+// 	#else
+// 		_RightEncoderTicks += _RightEncoderBSet ? -1 : +1;
+// 	#endif
+// }
 
 //***********************************************************************************
 //   actuator functions

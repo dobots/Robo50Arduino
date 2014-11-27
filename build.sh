@@ -1,1 +1,1 @@
-ino build -m mega2560 && ino upload -m mega2560
+ino build -m arduino_due_x_dbg && ino upload -m arduino_due_x_dbg
