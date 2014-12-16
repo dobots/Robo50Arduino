@@ -12,7 +12,7 @@ int slaveAddress; // This is calculated in the setup() function
 byte headingData[2];
 int headingValue;
 //int headingHistory[MAX_HEADING_HISTORY];
-//long headingAvg = -1L;
+//long headingAvg = -1L; 
 //int headingMax = -1;
 //int headingMin = 10000;
 bool ag_connected = false;
