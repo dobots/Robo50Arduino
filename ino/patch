@@ -1,28 +1,112 @@
 diff --git a/ino/commands/build.py b/ino/commands/build.py
-index 76802c1..cb53df9 100644
+index 76802c1..a1f8a9b 100644
 --- a/ino/commands/build.py
 +++ b/ino/commands/build.py
-@@ -159,7 +159,7 @@ class Build(Command):
-                 }
-             },
+@@ -137,7 +137,7 @@ class Build(Command):
+                                     human_name='Arduino variants directory ({})'.format(board['arch']))
+ 
+         toolset = [
+-            ('make', args.make, 'avr'),
++            ('make', args.make, None),
+             ('cc', args.cc, None),
+             ('cxx', args.cxx, None),
+             ('ar', args.ar, None),
+@@ -145,21 +145,34 @@ class Build(Command):
+             ('objcopy', args.objcopy, None),
+         ]
+ 
++        # tools_arch_mapping = {
++        #     'avr': {
++        #         'dirname': 'avr',
++        #         'tool_prefix': 'avr-',
++        #         'tools': {
++        #             'make': 'make',
++        #             'cc': 'gcc',
++        #             'cxx': 'g++',
++        #             'ar': 'ar',
++        #             'ld': 'gcc',
++        #             'objcopy': 'objcopy'
++        #         }
++        #     },
++        #     'sam': {
++        #         'dirname': 'arm-none-eabi',
++        #         'tool_prefix': 'arm-none-eabi-',
++        #         'tools': {
++        #             'cc': 'gcc',
++        #             'cxx': 'g++',
++        #             'ar': 'ar',
++        #             'ld': 'g++',
++        #             'objcopy': 'objcopy'
++        #         }
++        #     }
++        # }
+         tools_arch_mapping = {
+-            'avr': {
+-                'dirname': 'avr',
+-                'tool_prefix': 'avr-',
+-                'tools': {
+-                    'make': 'make',
+-                    'cc': 'gcc',
+-                    'cxx': 'g++',
+-                    'ar': 'ar',
+-                    'ld': 'gcc',
+-                    'objcopy': 'objcopy'
+-                }
+-            },
              'sam': {
 -                'dirname': 'g++_arm_none_eabi',
-+                'dirname': 'gcc-arm-none-eabi-4.8.3-2014q1',
++                'dirname': 'arm-none-eabi',
                  'tool_prefix': 'arm-none-eabi-',
                  'tools': {
                      'cc': 'gcc',
 diff --git a/ino/commands/upload.py b/ino/commands/upload.py
-index ebd62ae..55c1cc0 100644
+index ebd62ae..76fc950 100644
 --- a/ino/commands/upload.py
 +++ b/ino/commands/upload.py
-@@ -46,8 +46,8 @@ class Upload(Command):
+@@ -45,12 +45,12 @@ class Upload(Command):
+         tools.append(os.path.join(platform_settings['sam']['tools']['bossac']['path'],
                                    str(platform_settings['sam']['tools']['bossac']['cmd'])))
  
-         if platform.system() == 'Linux':
+-        if platform.system() == 'Linux':
 -            tools.append(platform_settings['avr']['tools']['avrdude']['cmd']['path']['linux'])
 -            tools.append(platform_settings['avr']['tools']['avrdude']['config']['path']['linux'])
-+            tools.append(platform_settings['avr']['tools']['avrdude']['cmd']['path'])
-+            tools.append(platform_settings['avr']['tools']['avrdude']['config']['path'])
-         else:
-             tools.append(str(platform_settings['avr']['tools']['avrdude']['cmd']['path']))
-             tools.append(str(platform_settings['avr']['tools']['avrdude']['config']['path']))
+-        else:
+-            tools.append(str(platform_settings['avr']['tools']['avrdude']['cmd']['path']))
+-            tools.append(str(platform_settings['avr']['tools']['avrdude']['config']['path']))
++        # if platform.system() == 'Linux':
++        #     tools.append(platform_settings['avr']['tools']['avrdude']['cmd']['path']['linux'])
++        #     tools.append(platform_settings['avr']['tools']['avrdude']['config']['path']['linux'])
++        # else:
++        #     tools.append(str(platform_settings['avr']['tools']['avrdude']['cmd']['path']))
++        #     tools.append(str(platform_settings['avr']['tools']['avrdude']['config']['path']))
+ 
+         for tool_path in tools:
+             tool_path_components = tool_path.replace('{runtime.ide.path}/', '').split('/')
+@@ -154,15 +154,15 @@ class Upload(Command):
+             #tools.bossac.upload.pattern="{path}/{cmd}" {upload.verbose} 
+             # --port={serial.port.file} -U {upload.native_usb} -e -w -v -b "{build.path}/{build.project_name}.bin" -R
+ 
+-        elif board['bootloader']['tool'] == 'avrdude':
+-            # call avrdude to upload .hex
+-            subprocess.call([
+-                self.e['avrdude'],
+-                '-C', self.e['avrdude.conf'],
+-                '-p', board['build']['mcu'],
+-                '-P', port,
+-                '-c', protocol,
+-                '-b', board['upload']['speed'],
+-                '-D',
+-                '-U', 'flash:w:%s:i' % self.e['hex_path'],
+-            ])
++        # elif board['bootloader']['tool'] == 'avrdude':
++        #     # call avrdude to upload .hex
++        #     subprocess.call([
++        #         self.e['avrdude'],
++        #         '-C', self.e['avrdude.conf'],
++        #         '-p', board['build']['mcu'],
++        #         '-P', port,
++        #         '-c', protocol,
++        #         '-b', board['upload']['speed'],
++        #         '-D',
++        #         '-U', 'flash:w:%s:i' % self.e['hex_path'],
++        #     ])

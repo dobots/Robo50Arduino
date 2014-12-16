@@ -132,9 +132,9 @@ void setup() {
 	// slaveAddress = HMC6352Address >> 1;   // This results in 0x21 as the address to pass to TWI
 
 	// setup accelero/gyro
-	// accelgyro.initialize(); // initialize device
-	// ag_connected = accelgyro.testConnection(); // verify connection
-	// LOGd(3, ag_connected ? "MPU6050 connection successful" : "MPU6050 connection failed");
+	accelgyro.initialize(); // initialize device
+	ag_connected = accelgyro.testConnection(); // verify connection
+	LOGd(3, ag_connected ? "MPU6050 connection successful" : "MPU6050 connection failed");
 
 	// y axis is the axis to use
 
