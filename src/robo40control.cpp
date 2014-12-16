@@ -112,7 +112,7 @@ void setup() {
 	//Timer1.attachInterrupt(timerCB);
 
 	// connection to compass, uses pins 20 and 21
-	Wire.begin();
+	//Wire.begin();
 
 #ifdef DEBUG_BT
 	// connect to bluetooth, uses pin 14 and 15
@@ -124,16 +124,16 @@ void setup() {
 	// Shift the device's documented slave address (0x42) 1 bit right
 	// This compensates for how the TWI library only wants the
 	// 7 most significant bits (with the high bit padded with 0)
-	slaveAddress = HMC6352Address >> 1;   // This results in 0x21 as the address to pass to TWI
+	//slaveAddress = HMC6352Address >> 1;   // This results in 0x21 as the address to pass to TWI
 
 	// setup accelero/gyro
-	accelgyro.initialize(); // initialize device
-	ag_connected = accelgyro.testConnection(); // verify connection
-	LOGd(3, ag_connected ? "MPU6050 connection successful" : "MPU6050 connection failed");
+	//accelgyro.initialize(); // initialize device
+	//ag_connected = accelgyro.testConnection(); // verify connection
+	//LOGd(3, ag_connected ? "MPU6050 connection successful" : "MPU6050 connection failed");
 
 	// y axis is the axis to use
 
-	resetSensors(); // reset sensor history
+	//resetSensors(); // reset sensor history
 
 	LOGd(1, "ready");
 }
@@ -196,7 +196,7 @@ void handleInput(int incoming) {
 
 		case 'l': log_level = (log_level+1) % 4; LOGd(0, "loglevel: %d", log_level); break;
 
-		default: LOGd(1, "incoming: %c (%d)", incoming, incoming); break;
+		//default: LOGd(1, "incoming: %c (%d)", incoming, incoming); break;
 	}
 }
 
@@ -555,23 +555,24 @@ void drive() {
 	}
 #endif
 
-	// So far so good, move proportionally closer to desired speed
-	int diffRightSpeed = desiredRightSpeed - curRightSpeed;
-    curRightSpeed += sgn(diffRightSpeed) * min(abs(diffRightSpeed), 40);
+	 //So far so good, move proportionally closer to desired speed
+	//int diffRightSpeed = desiredRightSpeed - curRightSpeed;
+    //curRightSpeed += sgn(diffRightSpeed) * min(abs(diffRightSpeed), 40);
 	// [19.11.14] no more ramping necessary with new hardware
-	// curRightSpeed = desiredRightSpeed;
+	curRightSpeed = desiredRightSpeed;
 
-	int diffLeftSpeed = desiredLeftSpeed - curLeftSpeed;
-    curLeftSpeed += sgn(diffLeftSpeed) * min(abs(diffLeftSpeed), 40);
+	//int diffLeftSpeed = desiredLeftSpeed - curLeftSpeed;
+    //curLeftSpeed += sgn(diffLeftSpeed) * min(abs(diffLeftSpeed), 40);
 	// [19.11.14] no more ramping necessary with new hardware
-	// curLeftSpeed = desiredLeftSpeed;
+	curLeftSpeed = desiredLeftSpeed;
 
 #ifndef DEBUG
 	//finally check bumpers to prevent movement forward
 	int bumper_ok = digitalRead(BUMPER_LEFT) | digitalRead(BUMPER_RIGHT);
 
 	// if ((bump1 == 0) || (bump2 == 0)) //bumper pressed
-	if (!bumper_ok) {
+	//if (!bumper_ok) {
+	if (bumper_ok) { //inverted for testing purposes
 		//blunty overwrite any intentions for going forward, then proceed as usual
 		if (curRightSpeed > 0) curRightSpeed = 0;
 		if (curLeftSpeed > 0) curLeftSpeed = 0;
@@ -589,17 +590,17 @@ void drive() {
 	if (curLeftSpeed > 0) {
 		digitalWrite(DIRECTION_LEFT, LOW);
 		//lastDirectionLeft = 1; //to let the encoder know which way we're going
-	} else {
+	} else if(curLeftSpeed < 0) {
 		digitalWrite(DIRECTION_LEFT, HIGH);
 	}
 
 	if (curRightSpeed > 0) {
 		digitalWrite(DIRECTION_RIGHT, LOW);
 		//lastDirectionRight = 1; //to let the encoder know which way we're going
-	} else {
+	} else if (curRightSpeed < 0) {
 		digitalWrite(DIRECTION_RIGHT, HIGH);
 	}
-
+	
 	if ((curRightSpeed | curLeftSpeed) != 0) {
 		flashLight(255);
 	} else {
@@ -607,7 +608,8 @@ void drive() {
 	}
 
 	// [19.11.14] temporarily added to partially solve direction switch problem
-	delay(100);
+	//delay(100);
+	//delay(50);
 
 	analogWrite(PWM_LEFT, abs(curLeftSpeed));   //PWM Speed Control
 	analogWrite(PWM_RIGHT, abs(curRightSpeed));   //PWM Speed Control
