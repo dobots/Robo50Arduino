@@ -1,10 +1,15 @@
 needs arduino 1.5.8
 
-1. download arduino-1.5.8 and move it to {arduino-1.5.8_dir}
-2. copy boards.txt to {arduino-1.5.8_dir}/hardware/arduino/avr/
-3. create symlink to arduino: sudo ln -s {arduino-1.5.8_dir} /usr/share/arduino
+get arduino ide
+1. download [arduino ide for udoo](http://www.udoo.org/downloads/#tab4) and move it to {arduino_dir}
+2. create symlink to arduino: sudo ln -s {arduino_dir} /usr/share/arduino
+3. replace syscalls_sam3.c by syscalls_sam3.cbak in {arduino_dir}/hardware/arduino/sam/cores/arduino/
 
-1. clone https://github.com/justonia/ino.git
-2. git checkout ide1.5x'
-3. git apply --ignore-space-change --ignore-whitespace patch
-4. sudo make install
+get ino
+1. git clone https://github.com/justonia/ino.git --branch ide1.5x
+2. git apply --ignore-space-change --ignore-whitespace patch
+3. sudo make install
+
+if permission denied errors run the scripts as sudo or follow these steps to aquire write permissions
+1. sudo chown -RL {user} /sys/class/gpio
+2. sudo chown /dev/ttymxc3
