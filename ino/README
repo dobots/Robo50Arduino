@@ -12,4 +12,4 @@ get ino
 
 if permission denied errors run the scripts as sudo or follow these steps to aquire write permissions
 1. sudo chown -RL {user} /sys/class/gpio
-2. sudo chown /dev/ttymxc3
+2. sudo chown {user} /dev/ttymxc3
