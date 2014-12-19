@@ -54,9 +54,11 @@ int msgCounter;
 // AD0 high = 0x69
 MPU6050 accelgyro;
 
+#ifdef ENCODERS_USED
 // Encoder
 Encoder leftEncoder(LEFT_ENCODER_A, LEFT_ENCODER_B);
 Encoder rightEncoder(RIGHT_ENCODER_A, RIGHT_ENCODER_B);
+#endif
 
 // --------------------------------------------------------------------
 void setup() {
@@ -102,7 +104,7 @@ void setup() {
     pinMode(BUMPER_LEFT, INPUT);
     pinMode(BUMPER_RIGHT, INPUT);
 
-	// pinMode(SELF_DESTRUCT, OUTPUT);
+	pinMode(SELF_DESTRUCT, OUTPUT);
 
 	//connect to computer, uses pin 0 and 1
 	Serial.begin(115200);
@@ -357,11 +359,13 @@ void sendData() {
 	aJson.addNumberToObject(group, "z", formatGyroValue(agValue[GZ]));
 	aJson.addItemToObject(data, "gyro", group);
 
+#ifdef ENCODERS_USED
 	// ENCODER
 	group = aJson.createObject();
 	aJson.addNumberToObject(group, "left", (int)leftEncoder.read());
 	aJson.addNumberToObject(group, "right", (int)rightEncoder.read());
 	aJson.addItemToObject(data, "odom", group);
+#endif
 
 	// WHEELS
 	group = aJson.createObject();

@@ -68,6 +68,7 @@ DAC1		FREE
  * Compile Flags
  *****************************************/
 
+// #define ENCODERS_USED
 #define RAMPING
 #define IMU_INVERTED
 
