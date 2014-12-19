@@ -102,6 +102,8 @@ void setup() {
     pinMode(BUMPER_LEFT, INPUT);
     pinMode(BUMPER_RIGHT, INPUT);
 
+	// pinMode(SELF_DESTRUCT, OUTPUT);
+
 	//connect to computer, uses pin 0 and 1
 	Serial.begin(115200);
 
@@ -186,6 +188,12 @@ void handleInput(int incoming) {
 		case '6': manualCommand = true; analogWrite(PWM_LEFT, 0); break;
 		case '7': manualCommand = true; analogWrite(PWM_RIGHT, 200); break;
 		case '8': manualCommand = true; analogWrite(PWM_RIGHT, 0); break;
+
+		// case '`': LOGd(0, "self destruct"); 
+		// 	digitalWrite(SELF_DESTRUCT, HIGH);
+		// 	delay(500);
+		// 	digitalWrite(SELF_DESTRUCT, LOW);
+		// 	break;
 
 		// case '1': desiredSpeedMotor[0] = 200; break;
 		// case '2': desiredSpeedMotor[0] = 0; break;
@@ -604,23 +612,30 @@ void drive() {
 #endif
 
 	// So far so good, move proportionally closer to desired speed
-	// int diffRightSpeed = desiredRightSpeed - curRightSpeed;
- //    curRightSpeed += sgn(diffRightSpeed) * min(abs(diffRightSpeed), 40);
+#ifdef RAMPING
+	int diffRightSpeed = desiredRightSpeed - curRightSpeed;
+    curRightSpeed += sgn(diffRightSpeed) * min(abs(diffRightSpeed), 20);
+#else
 	// [19.11.14] no more ramping necessary with new hardware
 	curRightSpeed = desiredRightSpeed;
+#endif
 
-	// int diffLeftSpeed = desiredLeftSpeed - curLeftSpeed;
- //    curLeftSpeed += sgn(diffLeftSpeed) * min(abs(diffLeftSpeed), 40);
+#ifdef RAMPING
+	int diffLeftSpeed = desiredLeftSpeed - curLeftSpeed;
+    curLeftSpeed += sgn(diffLeftSpeed) * min(abs(diffLeftSpeed), 20);
+#else
 	// [19.11.14] no more ramping necessary with new hardware
 	curLeftSpeed = desiredLeftSpeed;
+#endif
 
 #ifndef DEBUG
-	// finally check bumpers to prevent movement forward
-	int bumper_ok = digitalRead(BUMPER_LEFT) | digitalRead(BUMPER_RIGHT);
+	//finally check bumpers to prevent movement forward
+	// int bumper_ok = digitalRead(BUMPER_LEFT) | digitalRead(BUMPER_RIGHT);
 	// int bumper_ok = 1;
 
-	// if ((bump1 == 0) || (bump2 == 0)) //bumper pressed
-	if (!bumper_ok) {
+	// LOGd(1, "bumper: %d (l=%d, r=%d)", bumper_ok, digitalRead(BUMPER_LEFT), digitalRead(BUMPER_RIGHT));
+	if ((digitalRead(BUMPER_LEFT) == 0) || (digitalRead(BUMPER_RIGHT) == 0)) //bumper pressed
+	// if (!bumper_ok) {
 		//blunty overwrite any intentions for going forward, then proceed as usual
 		if (curRightSpeed > 0) curRightSpeed = 0;
 		if (curLeftSpeed > 0) curLeftSpeed = 0;
@@ -638,14 +653,14 @@ void drive() {
 	if (curLeftSpeed > 0) {
 		digitalWrite(DIRECTION_LEFT, LOW);
 		//lastDirectionLeft = 1; //to let the encoder know which way we're going
-	} else {
+	} else if (curLeftSpeed < 0)  {
 		digitalWrite(DIRECTION_LEFT, HIGH);
 	}
 
 	if (curRightSpeed > 0) {
 		digitalWrite(DIRECTION_RIGHT, LOW);
 		//lastDirectionRight = 1; //to let the encoder know which way we're going
-	} else {
+	} else if (curRightSpeed < 0)  {
 		digitalWrite(DIRECTION_RIGHT, HIGH);
 	}
 
@@ -783,7 +798,13 @@ float formatAcceleroValue(int value) {
 }
 
 float formatGyroValue(int value) {
-	return float(value / 32767.0 * GYROSCOPE_RANGE);
+	float result = float(value / 32767.0 * GYROSCOPE_RANGE);
+
+#ifdef IMU_INVERTED
+	result *= -1;
+#endif
+	
+	return result;
 }
 
 float formatCompassValue(int value) {

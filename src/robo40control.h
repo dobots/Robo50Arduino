@@ -64,9 +64,19 @@ DAC1		FREE
 #include "log.h"
 //#include "digitalWriteFast.h"  //could be used to improve performance
 
-#define sgn(x) ((x < 0 ) ? (-1) : (1))
+/*****************************************
+ * Compile Flags
+ *****************************************/
 
-//// message protocol //////////
+#define RAMPING
+#define IMU_INVERTED
+
+/*****************************************
+ * 
+ *****************************************/
+
+#define sgn(x) ((x < 0 )? (-1) : (1))
+
 // message constants
 #define HEADER 0xA5
 
@@ -155,6 +165,10 @@ bool MOTOR_INVERTED[4] = {false, false, false, false};
 
 // current limit constant
 #define CURRENT_LIMIT_DRIVE 1000
+#define MAX_INCIDENT_COUNT 50
+#define BATTERY_SENSE A3
+
+#define SELF_DESTRUCT 13
 
 // max speed
 #define MAX_SPEED 255
