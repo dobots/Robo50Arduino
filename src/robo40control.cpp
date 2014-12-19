@@ -132,9 +132,9 @@ void setup() {
 	// slaveAddress = HMC6352Address >> 1;   // This results in 0x21 as the address to pass to TWI
 
 	// setup accelero/gyro
-	// accelgyro.initialize(); // initialize device
-	// ag_connected = accelgyro.testConnection(); // verify connection
-	// LOGd(3, ag_connected ? "MPU6050 connection successful" : "MPU6050 connection failed");
+	accelgyro.initialize(); // initialize device
+	ag_connected = accelgyro.testConnection(); // verify connection
+	LOGd(3, ag_connected ? "MPU6050 connection successful\r\n" : "MPU6050 connection failed");
 
 	// y axis is the axis to use
 
@@ -604,19 +604,20 @@ void drive() {
 #endif
 
 	// So far so good, move proportionally closer to desired speed
-	int diffRightSpeed = desiredRightSpeed - curRightSpeed;
-    curRightSpeed += sgn(diffRightSpeed) * min(abs(diffRightSpeed), 40);
+	// int diffRightSpeed = desiredRightSpeed - curRightSpeed;
+ //    curRightSpeed += sgn(diffRightSpeed) * min(abs(diffRightSpeed), 40);
 	// [19.11.14] no more ramping necessary with new hardware
-	// curRightSpeed = desiredRightSpeed;
+	curRightSpeed = desiredRightSpeed;
 
-	int diffLeftSpeed = desiredLeftSpeed - curLeftSpeed;
-    curLeftSpeed += sgn(diffLeftSpeed) * min(abs(diffLeftSpeed), 40);
+	// int diffLeftSpeed = desiredLeftSpeed - curLeftSpeed;
+ //    curLeftSpeed += sgn(diffLeftSpeed) * min(abs(diffLeftSpeed), 40);
 	// [19.11.14] no more ramping necessary with new hardware
-	// curLeftSpeed = desiredLeftSpeed;
+	curLeftSpeed = desiredLeftSpeed;
 
 #ifndef DEBUG
-	//finally check bumpers to prevent movement forward
+	// finally check bumpers to prevent movement forward
 	int bumper_ok = digitalRead(BUMPER_LEFT) | digitalRead(BUMPER_RIGHT);
+	// int bumper_ok = 1;
 
 	// if ((bump1 == 0) || (bump2 == 0)) //bumper pressed
 	if (!bumper_ok) {
@@ -655,7 +656,7 @@ void drive() {
 	}
 
 	// [19.11.14] temporarily added to partially solve direction switch problem
-	delay(100);
+	// delay(5);
 
 	analogWrite(PWM_LEFT, abs(curLeftSpeed));   //PWM Speed Control
 	analogWrite(PWM_RIGHT, abs(curRightSpeed));   //PWM Speed Control
@@ -739,7 +740,7 @@ void stop(int motor_id) {
 }
 
 int capSpeed(int value) {
-    return max(min(value,200),-200);
+    return max(min(value,MAX_SPEED),-MAX_SPEED);
 }
 
 void flashLight(int speed) {

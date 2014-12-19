@@ -85,7 +85,7 @@ DAC1		FREE
 #define BOOL_T 3
 
 //// general ///////////////////
-#define COMMAND_TIMEOUT 5000    ///TODO: set this to 500ms or so for use with ROS
+#define COMMAND_TIMEOUT 500    ///TODO: set this to 500ms or so for use with ROS
 #define INCIDENT_TIMEOUT 5000
 #define MAX_INCIDENT_COUNT 50
 
@@ -155,6 +155,9 @@ bool MOTOR_INVERTED[4] = {false, false, false, false};
 
 // current limit constant
 #define CURRENT_LIMIT_DRIVE 1000
+
+// max speed
+#define MAX_SPEED 255
 
 //// flash light ///////////////
 // flash light pin
