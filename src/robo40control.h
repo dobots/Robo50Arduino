@@ -65,7 +65,7 @@ A12 to A15 current sensing additional motors (A, B, C, D; elevator, pump, vacuum
  * Compile Flags
  *****************************************/
 
-#define RAMPING
+// #define RAMPING
 #define IMU_INVERTED
 
 /*****************************************

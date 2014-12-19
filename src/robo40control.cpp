@@ -97,13 +97,19 @@ void setup() {
     pinMode(BUMPER_LEFT, INPUT);
     pinMode(BUMPER_RIGHT, INPUT);
 
-	// pinMode(SELF_DESTRUCT, OUTPUT);
+	pinMode(SELF_DESTRUCT, OUTPUT);
 
 	//connect to computer, uses pin 0 and 1
 	Serial.begin(115200);
 
 #ifdef DEBUG
 	initLogging(&Serial);
+#endif
+
+#ifdef DEBUG_BT
+	// connect to bluetooth, uses pin 14 and 15
+	Serial3.begin(115200);
+	initLogging(&Serial3);
 #endif
 
 	LOGd(1, "startup...");
@@ -115,12 +121,6 @@ void setup() {
 
 	// connection to compass, uses pins 20 and 21
 	Wire.begin();
-
-#ifdef DEBUG_BT
-	// connect to bluetooth, uses pin 14 and 15
-	Serial3.begin(115200);
-	initLogging(&Serial3);
-#endif
 
 	// setup compass
 	// Shift the device's documented slave address (0x42) 1 bit right
@@ -184,11 +184,11 @@ void handleInput(int incoming) {
 		case '7': manualCommand = true; analogWrite(PWM_RIGHT, 200); break;
 		case '8': manualCommand = true; analogWrite(PWM_RIGHT, 0); break;
 
-		// case '`': LOGd(0, "self destruct"); 
-		// 	digitalWrite(SELF_DESTRUCT, HIGH);
-		// 	delay(500);
-		// 	digitalWrite(SELF_DESTRUCT, LOW);
-		// 	break;
+		case '`': LOGd(0, "self destruct"); 
+			digitalWrite(SELF_DESTRUCT, HIGH);
+			delay(500);
+			digitalWrite(SELF_DESTRUCT, LOW);
+			break;
 
 		// case '1': desiredSpeedMotor[0] = 200; break;
 		// case '2': desiredSpeedMotor[0] = 0; break;
@@ -588,7 +588,7 @@ void drive() {
 	// int bumper_ok = 1;
 
 	// LOGd(1, "bumper: %d (l=%d, r=%d)", bumper_ok, digitalRead(BUMPER_LEFT), digitalRead(BUMPER_RIGHT));
-	if ((digitalRead(BUMPER_LEFT) == 0) || (digitalRead(BUMPER_RIGHT) == 0)) //bumper pressed
+	if ((digitalRead(BUMPER_LEFT) == 0) || (digitalRead(BUMPER_RIGHT) == 0)) { //bumper pressed
 	// if (!bumper_ok) {
 		//blunty overwrite any intentions for going forward, then proceed as usual
 		if (curRightSpeed > 0) curRightSpeed = 0;
@@ -625,7 +625,7 @@ void drive() {
 	}
 
 	// [19.11.14] temporarily added to partially solve direction switch problem
-	delay(5);
+	// delay(5);
 
 	analogWrite(PWM_LEFT, abs(curLeftSpeed));   //PWM Speed Control
 	analogWrite(PWM_RIGHT, abs(curRightSpeed));   //PWM Speed Control
