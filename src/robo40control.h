@@ -61,6 +61,17 @@ A12 to A15 current sensing additional motors (A, B, C, D; elevator, pump, vacuum
 #include "log.h"
 //#include "digitalWriteFast.h"  //could be used to improve performance
 
+/*****************************************
+ * Compile Flags
+ *****************************************/
+
+#define RAMPING
+#define IMU_INVERTED
+
+/*****************************************
+ * 
+ *****************************************/
+
 #define sgn(x) ((x < 0 )? (-1) : (1))
 
 // message constants
@@ -119,12 +130,13 @@ bool MOTOR_INVERTED[4] = {false, false, false, false};
 #define CURRENT_SENSE_LEFT A0
 #define CURRENT_SENSE_RIGHT A2
 #define CURRENT_LIMIT_DRIVE 1000
-#define COMMAND_TIMEOUT 5000    ///TODO: set this to 500ms or so for use with ROS
+#define COMMAND_TIMEOUT 500    ///TODO: set this to 500ms or so for use with ROS
 #define INCIDENT_TIMEOUT 5000
 #define MAX_INCIDENT_COUNT 50
 #define BATTERY_SENSE A3
 
-#define SELF_DESTRUCT 13
+#define SELF_DESTRUCT 12
+
 
 //// flash light
 #define FLASH_LIGHT 10

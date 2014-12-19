@@ -12,7 +12,7 @@
 	bool debug_on = false;
 #endif
 
-int log_level = 3;
+int log_level = 2;
 
 // --------------------------------------------------------------------
 // LOCAL VAR
