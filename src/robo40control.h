@@ -64,9 +64,19 @@ DAC1		FREE
 #include "log.h"
 //#include "digitalWriteFast.h"  //could be used to improve performance
 
-#define sgn(x) ((x < 0 ) ? (-1) : (1))
+/*****************************************
+ * Compile Flags
+ *****************************************/
 
-//// message protocol //////////
+#define RAMPING
+#define IMU_INVERTED
+
+/*****************************************
+ * 
+ *****************************************/
+
+#define sgn(x) ((x < 0 )? (-1) : (1))
+
 // message constants
 #define HEADER 0xA5
 
@@ -155,9 +165,15 @@ bool MOTOR_INVERTED[4] = {false, false, false, false};
 
 // current limit constant
 #define CURRENT_LIMIT_DRIVE 1000
+#define COMMAND_TIMEOUT 500    ///TODO: set this to 500ms or so for use with ROS
+#define INCIDENT_TIMEOUT 5000
+#define MAX_INCIDENT_COUNT 50
+#define BATTERY_SENSE A3
 
-//// flash light ///////////////
-// flash light pin
+#define SELF_DESTRUCT 12
+
+
+//// flash light
 #define FLASH_LIGHT 10
 // #define FLASH_ENABLED
 
