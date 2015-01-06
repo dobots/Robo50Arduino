@@ -54,9 +54,11 @@ int msgCounter;
 // AD0 high = 0x69
 MPU6050 accelgyro;
 
+#ifdef ENCODERS_USED
 // Encoder
 Encoder leftEncoder(LEFT_ENCODER_A, LEFT_ENCODER_B);
 Encoder rightEncoder(RIGHT_ENCODER_A, RIGHT_ENCODER_B);
+#endif
 
 // --------------------------------------------------------------------
 void setup() {
@@ -102,7 +104,7 @@ void setup() {
     pinMode(BUMPER_LEFT, INPUT);
     pinMode(BUMPER_RIGHT, INPUT);
 
-	// pinMode(SELF_DESTRUCT, OUTPUT);
+	pinMode(SELF_DESTRUCT, OUTPUT);
 
 	//connect to computer, uses pin 0 and 1
 	Serial.begin(115200);
@@ -134,9 +136,9 @@ void setup() {
 	// slaveAddress = HMC6352Address >> 1;   // This results in 0x21 as the address to pass to TWI
 
 	// setup accelero/gyro
-	// accelgyro.initialize(); // initialize device
-	// ag_connected = accelgyro.testConnection(); // verify connection
-	// LOGd(3, ag_connected ? "MPU6050 connection successful" : "MPU6050 connection failed");
+	accelgyro.initialize(); // initialize device
+	ag_connected = accelgyro.testConnection(); // verify connection
+	LOGd(3, ag_connected ? "MPU6050 connection successful\r\n" : "MPU6050 connection failed");
 
 	// y axis is the axis to use
 
@@ -334,8 +336,6 @@ void sendData() {
 
 	// BUMPER
 	group = aJson.createObject();
-	// aJson.addNumberToObject(group, "left", 1);
-	// aJson.addNumberToObject(group, "right", 1);
 	aJson.addNumberToObject(group, "left", digitalRead(BUMPER_LEFT));
 	aJson.addNumberToObject(group, "right", digitalRead(BUMPER_RIGHT));
 	aJson.addItemToObject(data, "bumper", group);
@@ -359,11 +359,13 @@ void sendData() {
 	aJson.addNumberToObject(group, "z", formatGyroValue(agValue[GZ]));
 	aJson.addItemToObject(data, "gyro", group);
 
+#ifdef ENCODERS_USED
 	// ENCODER
 	group = aJson.createObject();
 	aJson.addNumberToObject(group, "left", (int)leftEncoder.read());
 	aJson.addNumberToObject(group, "right", (int)rightEncoder.read());
 	aJson.addItemToObject(data, "odom", group);
+#endif
 
 	// WHEELS
 	group = aJson.createObject();
@@ -673,7 +675,7 @@ void drive() {
 	}
 
 	// [19.11.14] temporarily added to partially solve direction switch problem
-	delay(5);
+	// delay(5);
 
 	analogWrite(PWM_LEFT, abs(curLeftSpeed));   //PWM Speed Control
 	analogWrite(PWM_RIGHT, abs(curRightSpeed));   //PWM Speed Control
@@ -757,7 +759,7 @@ void stop(int motor_id) {
 }
 
 int capSpeed(int value) {
-    return max(min(value,200),-200);
+    return max(min(value,MAX_SPEED),-MAX_SPEED);
 }
 
 void flashLight(int speed) {
