@@ -638,7 +638,7 @@ void drive() {
 	// int bumper_ok = 1;
 
 	// LOGd(1, "bumper: %d (l=%d, r=%d)", bumper_ok, digitalRead(BUMPER_LEFT), digitalRead(BUMPER_RIGHT));
-	if ((digitalRead(BUMPER_LEFT) == 0) || (digitalRead(BUMPER_RIGHT) == 0)) //bumper pressed
+	if ((digitalRead(BUMPER_LEFT) == 0) || (digitalRead(BUMPER_RIGHT) == 0)) { //bumper pressed
 	// if (!bumper_ok) {
 		//blunty overwrite any intentions for going forward, then proceed as usual
 		if (curRightSpeed > 0) curRightSpeed = 0;
