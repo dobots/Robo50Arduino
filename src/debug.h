@@ -1,4 +1,3 @@
-// #define DEBUG
-#undef DEBUG
+//#define DEBUG
 
-// #define DEBUG_BT
+#define DEBUG_BT

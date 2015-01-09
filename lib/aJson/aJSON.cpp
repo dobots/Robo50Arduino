@@ -56,7 +56,7 @@ aJsonStream::available()
 {
   if (bucket != EOF)
     return true;
-  while (stream()->available())
+  while (Serial.available())
     {
       /* Make an effort to skip whitespace. */
       int ch = this->getch();
@@ -83,8 +83,8 @@ aJsonStream::getch()
   // would expect another character and end up stuck on
   // stream()->available() forever, hence the 500ms timeout.
   unsigned long i= millis()+500;
-  while ((!stream()->available()) && (millis() < i)) /* spin with a timeout*/;
-  return stream()->read();
+  while ((!Serial.available()) && (millis() < i)) /* spin with a timeout*/;
+  return Serial.read();
 }
 
 void
@@ -96,7 +96,7 @@ aJsonStream::ungetch(char ch)
 size_t
 aJsonStream::write(uint8_t ch)
 {
-  return stream()->write(ch);
+  return Serial.write(ch);
 }
 
 size_t
@@ -212,7 +212,7 @@ int
 aJsonStream::parseNumber(aJsonObject *item)
 {
   int i = 0;
-  char sign = 1;
+  int sign = 1;
 
   int in = this->getch();
   if (in == EOF)
