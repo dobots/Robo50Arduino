@@ -11,7 +11,7 @@ TODO
 */
 
 /*********************************
-*******      pinout      *********
+*******    pinout v0.3   *********
 **********************************
 
 0 - 1		serial (rx, tx)
@@ -19,18 +19,23 @@ TODO
 4 - 7 		motors PWM (elevator, pump, vacuum, brush) 
 8 - 9 		wheel PWM (left, right)
 10			flash light
-11			FREE (PWM)
-12			FREE (PWM)
-13 			power off
+11			LED 1
+12			off switch
+13 			FREE (PWM)
 14 - 15		bluetooth (tx, rx)
-16 - 17		FREE (serial2)
+16			LED 2 (serial 2 tx)
+17			FREE (serial2 rx)
 18 - 19		FREE (serial1)
-20 - 21		I2C Wire library
+20 - 21		I2C Wire library (IMU)
 22			FREE
 23			FREE
 24 - 25		right encoder (channel 1, 2)
 26 - 27 	left encoder (channel 1, 2)
 28			FREE
+-
+30			FREE
+31			LED 3
+32			FREE
 -
 34			FREE
 35			bumper left
@@ -39,13 +44,14 @@ TODO
 38			FREE
 -
 43			FREE
-44 - 47 	direction motors (elevator, pump, vacuum, brush)
+44 - 47 	direction motors (pump, elevator, brush, vacuum)
 48			FREE
 -
-53			FREE
+52			FREE
+53			LED 4
 
 A0 			current sensing left wheel
-A1			FREE
+A1			LED 5
 A2 			current sensing right wheel
 A3 			battery sense
 A4 - A7 	current sensing motors (elevator, pump, vacuum, brush)
@@ -106,6 +112,13 @@ DAC1		FREE
 // self destruct pin
 #define SELF_DESTRUCT 13
 
+// indicator led pins
+#define LED_1 11
+#define LED_2 16
+#define LED_3 31
+#define LED_4 53
+#define LED_5 A1
+
 //// motors ////////////////////
 // motor enum
 #define ELEVATOR 0 //these numbers + 1 is how they are used in the cpp file
@@ -128,10 +141,10 @@ int PWM_MOTORS[4] = {PWM_A, PWM_B, PWM_C, PWM_D};
 int CURRENT_SENSE_MOTORS[4] = {CURRENT_SENSE_A, CURRENT_SENSE_B, CURRENT_SENSE_C, CURRENT_SENSE_D};
 
 // direction pins
-#define DIRECTION_A 45  // elevator, + direction -> UP, - direction -> DOWN
 #define DIRECTION_B 44	// pump
-#define DIRECTION_C 47	// vacuum, both directions ok
+#define DIRECTION_A 45  // elevator, + direction -> UP, - direction -> DOWN
 #define DIRECTION_D 46 	// brush, + direction -> OK, - direction -> wrong
+#define DIRECTION_C 47	// vacuum, both directions ok
 int DIRECTION_MOTORS[4] = {DIRECTION_A, DIRECTION_B, DIRECTION_C, DIRECTION_D};
 
 // define direction to be inverted 
@@ -169,7 +182,7 @@ bool MOTOR_INVERTED[4] = {false, false, false, false};
 #define MAX_INCIDENT_COUNT 50
 #define BATTERY_SENSE A3
 
-#define SELF_DESTRUCT 13
+#define SELF_DESTRUCT 12
 
 // max speed
 #define MAX_SPEED 255
