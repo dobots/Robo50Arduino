@@ -106,10 +106,12 @@ void setup() {
 
 	pinMode(SELF_DESTRUCT, OUTPUT);
 
+	pinMode(IMU_POWER_SWITCH, OUTPUT);
+
 	//connect to computer, uses pin 0 and 1
 	Serial.begin(115200);
 
-// #ifdef DEBUG
+// #ifdef DEBUG_SERIAL
 // 	initLogging(&Serial);
 // #endif
 
@@ -129,18 +131,19 @@ void setup() {
 // 	initLogging(&Serial3);
 // #endif
 
-	// setup compass
-	// Shift the device's documented slave address (0x42) 1 bit right
-	// This compensates for how the TWI library only wants the
-	// 7 most significant bits (with the high bit padded with 0)
-	// slaveAddress = HMC6352Address >> 1;   // This results in 0x21 as the address to pass to TWI
+	// IMU / I2C is having problems with resets and gets stuck.
+	// to avoid problems, turn IMU off
+	digitalWrite(IMU_POWER_SWITCH, LOW);
+	delay(500);
+
+	// then turn it on again before initializing it
+	digitalWrite(IMU_POWER_SWITCH, HIGH);
+	delay(50);
 
 	// setup accelero/gyro
 	accelgyro.initialize(); // initialize device
 	ag_connected = accelgyro.testConnection(); // verify connection
 	LOGd(3, ag_connected ? "MPU6050 connection successful\r\n" : "MPU6050 connection failed");
-
-	// y axis is the axis to use
 
 	resetSensors(); // reset sensor history
 
@@ -159,7 +162,6 @@ void loop() {
 		secdrive(i);	//other motors
 	}
 
-//	readCompass();								//get sensor data
 	readAG();
 
 }
@@ -217,7 +219,7 @@ void handleInput(int incoming) {
 
 void receiveCommands() {
 
-#ifdef DEBUG
+#ifdef DEBUG_SERIAL
 	if (Serial.available()) {
 		int incoming = Serial.read();
 		handleInput(incoming);
