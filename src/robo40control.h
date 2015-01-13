@@ -112,6 +112,9 @@ DAC1		FREE
 // self destruct pin
 #define SELF_DESTRUCT 13
 
+// imu power switch pin
+#define IMU_POWER_SWITCH 11
+
 // indicator led pins
 #define LED_1 11
 #define LED_2 16
