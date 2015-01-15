@@ -7,6 +7,10 @@
 
 aJsonStream serial_stream(&Serial);
 
+#ifdef DEBUG_BT
+	aJsonStream bt_stream(&Serial3);
+#endif
+
 // compass and accelero variables
 // int HMC6352Address = 0x42;
 // int slaveAddress; // This is calculated in the setup() function
@@ -111,9 +115,11 @@ void setup() {
 	//connect to computer, uses pin 0 and 1
 	Serial.begin(115200);
 
-// #ifdef DEBUG_SERIAL
-// 	initLogging(&Serial);
-// #endif
+#ifdef DEBUG_BT
+	// connect to bluetooth, uses pin 14 and 15
+	Serial3.begin(115200);
+	setBluetoothSerial(&Serial3);
+#endif
 
 	LOGd(1, "startup...");
 
@@ -124,12 +130,6 @@ void setup() {
 
 	// connection to compass, uses pins 20 and 21
 	Wire.begin();
-
-// #ifdef DEBUG_BT
-// 	// connect to bluetooth, uses pin 14 and 15
-// 	Serial3.begin(115200);
-// 	initLogging(&Serial3);
-// #endif
 
 	// IMU / I2C is having problems with resets and gets stuck.
 	// to avoid problems, turn IMU off
@@ -219,20 +219,20 @@ void handleInput(int incoming) {
 
 void receiveCommands() {
 
-#ifdef DEBUG_SERIAL
-	if (Serial.available()) {
-		int incoming = Serial.read();
-		handleInput(incoming);
-	}
-	return;
-#endif
-
 #ifdef DEBUG_BT
 	if (Serial3.available()) {
 		int incoming = Serial3.read();
 		// LOGd(1, "serial3: %d", incoming);
 		handleInput(incoming);
 	}
+#endif
+
+#ifdef DEBUG
+	if (Serial.available()) {
+		int incoming = Serial.read();
+		handleInput(incoming);
+	}
+	return;
 #endif
 
 	aJsonObject* item;
@@ -437,6 +437,12 @@ void sendData() {
 
 	aJson.print(json, &serial_stream);
 	Serial.println("");
+
+#ifdef DEBUG_BT
+	aJson.print(json, &bt_stream);
+	Serial3.println("");
+#endif
+
 	aJson.deleteItem(json);
 }
 
@@ -575,6 +581,7 @@ void readAG() {
 
 unsigned long lastIncidentLogTime = 0;
 unsigned long lastBumperLogTime = 0;
+unsigned long lastCommandLogTime = 0;
 
 // driver function for wheels
 void drive() {
@@ -597,25 +604,38 @@ void drive() {
 		//differences should underflow when time overflowed
 
 // ignore command timeouts when debugging
+	bool forceStop = false;
+
 #ifndef DEBUG
+	if (commandDifference > COMMAND_TIMEOUT) {
+		forceStop = true;
+		if (time - lastCommandLogTime > 1000) {
+			LOGd(1, "Command timeout!! Wheel speed set to zero");
+			LOGd(3, "last command received: %d, now: %d", lastcommand, time);
+			lastCommandLogTime = time;
+		}
+	}
+#endif
+
 	//time should be bigger than INCIDENTTIMEOUT b/c incidents are initialized to 0
 	//also note that outliers are ignored implicitly here: one incident doesnt do much at all
-	if ((commandDifference > COMMAND_TIMEOUT) || ((time > INCIDENT_TIMEOUT) && (incidentDifference < INCIDENT_TIMEOUT)))
-	{
+	if ((time > INCIDENT_TIMEOUT) && (incidentDifference < INCIDENT_TIMEOUT)) {
+		forceStop = true;
+		// only log once per second
+		if (time - lastIncidentLogTime > 1000) {
+			LOGd(1, "Too many incidents!! Wheel speed set to zero");
+			LOGd(3, "senseLeft: %d, senseRight: %d", currentSenseLeft, currentSenseRight);
+			lastIncidentLogTime = time;
+		}
+	}
+	
+	if (forceStop) {
 		//bluntly put everything to zero
         curLeftSpeed = 0;
 		curRightSpeed = 0;
 		desiredLeftSpeed = 0;
-		desiredRightSpeed = 0;
-
-		if (time - lastIncidentLogTime > 500) {
-			LOGd(1, "Wheel speed set to zero due to problem: no commands or too many incidents!");
-			LOGd(3, "senseLeft: %d, senseRight: %d", currentSenseLeft, currentSenseRight);
-			LOGd(3, "last command received: %d, now: %d", lastcommand, time);
-			lastIncidentLogTime = time;
-		}
+		desiredRightSpeed = 0;	
 	}
-#endif
 
 	// So far so good, move proportionally closer to desired speed
 #ifdef RAMPING
@@ -649,7 +669,7 @@ void drive() {
 		if (desiredRightSpeed > 0) desiredRightSpeed = 0;
 		if (desiredLeftSpeed > 0) desiredLeftSpeed = 0;
 
-		if (time - lastBumperLogTime > 500) {
+		if (time - lastBumperLogTime > 1000) {
 			LOGd(2,"Bumper pressed, only allowing backwards movement!");
 			lastBumperLogTime = time;
 		}
