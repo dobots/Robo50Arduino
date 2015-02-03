@@ -1,15 +1,27 @@
-needs arduino 1.5.8
+needs arduino ide (hfp on armhf)
 
 get arduino ide
 1. download [arduino ide for udoo](http://www.udoo.org/downloads/#tab4) and move it to {arduino_dir}
 2. create symlink to arduino: sudo ln -s {arduino_dir} /usr/share/arduino
-3. replace syscalls_sam3.c by syscalls_sam3.cbak in {arduino_dir}/hardware/arduino/sam/cores/arduino/
+3. fix version in /usr/share/arduino/lib/version.txt by replacing ${version} with 1.5.4
 
 get ino
-1. git clone https://github.com/justonia/ino.git --branch ide1.5x
-2. git apply --ignore-space-change --ignore-whitespace patch
-3. sudo make install
+1. sudo apt-get install python-pip
+2. sudo pip install jinja2 pySerial
+3. git clone https://github.com/justonia/ino.git --branch ide1.5x
+4. git apply --ignore-space-change --ignore-whitespace patch
+5. sudo make install
 
 if permission denied errors run the scripts as sudo or follow these steps to aquire write permissions
 1. sudo chown -RL {user} /sys/class/gpio
 2. sudo chown {user} /dev/ttymxc3
+
+if missing python modules to run ino
+1. sudo pip install {module_name}
+
+on armhf, if bossac is not working, try this:
+1. readelf -a bossac | grep interpreter
+      [Requesting program interpreter: /lib/ld-linux.so.3]
+2. ls /lib | grep ld-linux
+      ld-linux-armhf.so.3
+3. sudo ln -s /lib/ld-linux-armhf.so.3 /lib/ld-linux.so.3
