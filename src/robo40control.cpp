@@ -101,8 +101,8 @@ void setup() {
 
 	pinMode(FLASH_LIGHT, OUTPUT);
 
-    pinMode(BUMPER_LEFT, INPUT);
-    pinMode(BUMPER_RIGHT, INPUT);
+	pinMode(BUMPER_LEFT, INPUT);
+	pinMode(BUMPER_RIGHT, INPUT);
 
 	pinMode(SELF_DESTRUCT, OUTPUT);
 
@@ -163,7 +163,6 @@ void loop() {
 	}
 
 	readAG();
-
 }
 
 //**********************************************************************************
@@ -328,19 +327,19 @@ void sendData() {
 	json = aJson.createObject();
 
 	// header = aJson.createObject();
-	// aJson.addNumberToObject(header, "id", HEADER);
+	// aJson.addNumberToObject(header, FIELD_ID, HEADER);
 	// aJson.addNumberToObject(header, "timestamp", msgCounter++);
 	// aJson.addNumberToObject(header, "type", SENSOR_DATA);
 	// aJson.addItemToObject(json, "header", header);
-	aJson.addNumberToObject(json, "id", SENSOR_DATA);
+	aJson.addNumberToObject(json, FIELD_ID, SENSOR_DATA);
 
 	data = aJson.createObject();
 
 	// BUMPER
 	group = aJson.createObject();
-	aJson.addNumberToObject(group, "left", digitalRead(BUMPER_LEFT));
-	aJson.addNumberToObject(group, "right", digitalRead(BUMPER_RIGHT));
-	aJson.addItemToObject(data, "bumper", group);
+	aJson.addNumberToObject(group, FIELD_LEFT, digitalRead(BUMPER_LEFT));
+	aJson.addNumberToObject(group, FIELD_RIGHT, digitalRead(BUMPER_RIGHT));
+	aJson.addItemToObject(data, FIELD_BUMPER, group);
 
 	// COMPASS
 	// group = aJson.createObject();
@@ -352,21 +351,21 @@ void sendData() {
 	aJson.addNumberToObject(group, "x", formatAcceleroValue(agValue[AX]));
 	aJson.addNumberToObject(group, "y", formatAcceleroValue(agValue[AY]));
 	aJson.addNumberToObject(group, "z", formatAcceleroValue(agValue[AZ]));
-	aJson.addItemToObject(data, "accelero", group);
+	aJson.addItemToObject(data, FIELD_ACCELERO, group);
 
 	// GYRO
 	group = aJson.createObject();
 	aJson.addNumberToObject(group, "x", formatGyroValue(agValue[GX]));
 	aJson.addNumberToObject(group, "y", formatGyroValue(agValue[GY]));
 	aJson.addNumberToObject(group, "z", formatGyroValue(agValue[GZ]));
-	aJson.addItemToObject(data, "gyro", group);
+	aJson.addItemToObject(data, FIELD_GYRO, group);
 
 #ifdef ENCODERS_USED
 	// ENCODER
 	group = aJson.createObject();
-	aJson.addNumberToObject(group, "left", (int)leftEncoder.read());
-	aJson.addNumberToObject(group, "right", (int)rightEncoder.read());
-	aJson.addItemToObject(data, "odom", group);
+	aJson.addNumberToObject(group, FIELD_LEFT, (int)leftEncoder.read());
+	aJson.addNumberToObject(group, FIELD_RIGHT, (int)rightEncoder.read());
+	aJson.addItemToObject(data, FIELD_ODOM, group);
 #endif
 
 	// WHEELS
@@ -378,8 +377,8 @@ void sendData() {
 	// aJson.addNumberToObject(item, "present", currentSenseLeft);
 	// aJson.addNumberToObject(item, "peak", reportCSLeft);
 	// aJson.addItemToObject(sub, "current", item);
-	aJson.addNumberToObject(sub, "speed", curLeftSpeed);
-	aJson.addItemToObject(group, "left", sub);
+	aJson.addNumberToObject(sub, FIELD_SPEED, curLeftSpeed);
+	aJson.addItemToObject(group, FIELD_LEFT, sub);
 
 	// .. RIGHT
 	sub = aJson.createObject();
@@ -387,10 +386,10 @@ void sendData() {
 	// aJson.addNumberToObject(item, "present", currentSenseRight);
 	// aJson.addNumberToObject(item, "peak", reportCSRight);
 	// aJson.addItemToObject(sub, "current", item);
-	aJson.addNumberToObject(sub, "speed", curRightSpeed);
-	aJson.addItemToObject(group, "right", sub);
+	aJson.addNumberToObject(sub, FIELD_SPEED, curRightSpeed);
+	aJson.addItemToObject(group, FIELD_RIGHT, sub);
 
-	aJson.addItemToObject(data, "wheels", group);
+	aJson.addItemToObject(data, FIELD_WHEELS, group);
 
 	// // MOTORS
 	// group = aJson.createObject();
@@ -401,7 +400,7 @@ void sendData() {
 	// aJson.addNumberToObject(item, "present", currentSenseMotor[ELEVATOR]);
 	// aJson.addNumberToObject(item, "peak", reportCSMotor[ELEVATOR]);
 	// aJson.addItemToObject(sub, "current", item);
-	// aJson.addNumberToObject(sub, "speed", curSpeedMotor[ELEVATOR]);
+	// aJson.addNumberToObject(sub, FIELD_SPEED, curSpeedMotor[ELEVATOR]);
 	// aJson.addItemToObject(group, "elevator", sub);
 
 	// // .. PUMP
@@ -410,7 +409,7 @@ void sendData() {
 	// aJson.addNumberToObject(item, "present", currentSenseMotor[PUMP]);
 	// aJson.addNumberToObject(item, "peak", reportCSMotor[PUMP]);
 	// aJson.addItemToObject(sub, "current", item);
-	// aJson.addNumberToObject(sub, "speed", curSpeedMotor[PUMP]);
+	// aJson.addNumberToObject(sub, FIELD_SPEED, curSpeedMotor[PUMP]);
 	// aJson.addItemToObject(group, "pump", sub);
 
 	// // .. VACUUM
@@ -419,7 +418,7 @@ void sendData() {
 	// aJson.addNumberToObject(item, "present", currentSenseMotor[VACUUM]);
 	// aJson.addNumberToObject(item, "peak", reportCSMotor[VACUUM]);
 	// aJson.addItemToObject(sub, "current", item);
-	// aJson.addNumberToObject(sub, "speed", curSpeedMotor[VACUUM]);
+	// aJson.addNumberToObject(sub, FIELD_SPEED, curSpeedMotor[VACUUM]);
 	// aJson.addItemToObject(group, "vacuum", sub);
 
 	// // .. BRUSH
@@ -428,12 +427,12 @@ void sendData() {
 	// aJson.addNumberToObject(item, "present", currentSenseMotor[BRUSH]);
 	// aJson.addNumberToObject(item, "peak", reportCSMotor[BRUSH]);
 	// aJson.addItemToObject(sub, "current", item);
-	// aJson.addNumberToObject(sub, "speed", curSpeedMotor[BRUSH]);
+	// aJson.addNumberToObject(sub, FIELD_SPEED, curSpeedMotor[BRUSH]);
 	// aJson.addItemToObject(group, "brush", sub);
 
 	// aJson.addItemToObject(data, "motors", group);
 
-	aJson.addItemToObject(json, "data", data);
+	aJson.addItemToObject(json, FIELD_DATA, data);
 
 	aJson.print(json, &serial_stream);
 	Serial.println("");
@@ -855,7 +854,7 @@ void resetSensors() {
 
 int getID(aJsonObject* json) {
 	aJsonObject* id;
-	id = aJson.getObjectItem(json, "id");
+	id = aJson.getObjectItem(json, FIELD_ID);
 	if (id == NULL) {
 		LOGd(1, "wrong json message");
 		return -1;
@@ -864,7 +863,7 @@ int getID(aJsonObject* json) {
 }
 
 void decodeMotorCommand(aJsonObject* json, int* motor_id, int* speed) {
-	aJsonObject* data = aJson.getObjectItem(json, "data");
+	aJsonObject* data = aJson.getObjectItem(json, FIELD_DATA);
 
 	aJsonObject* motor_id_j = aJson.getArrayItem(data, 0);
 	*motor_id = motor_id_j->valueint;
@@ -874,7 +873,7 @@ void decodeMotorCommand(aJsonObject* json, int* motor_id, int* speed) {
 }
 
 void decodeDriveCommand(aJsonObject* json, int* left, int* right) {
-	aJsonObject* data = aJson.getObjectItem(json, "data");
+	aJsonObject* data = aJson.getObjectItem(json, FIELD_DATA);
 
 	aJsonObject* left_j = aJson.getArrayItem(data, 0);
 	*left = left_j->valueint;
@@ -884,12 +883,12 @@ void decodeDriveCommand(aJsonObject* json, int* left, int* right) {
 }
 
 // void decodeDriveCommand(aJsonObject* json, int* left, int* right) {
-// 	aJsonObject* data = aJson.getObjectItem(json, "data");
+// 	aJsonObject* data = aJson.getObjectItem(json, FIELD_DATA);
 
-// 	aJsonObject* left_j = aJson.getObjectItem(data, "left");
+// 	aJsonObject* left_j = aJson.getObjectItem(data, FIELD_LEFT);
 // 	*left = left_j->valueint;
 
-// 	aJsonObject* right_j = aJson.getObjectItem(data, "right");
+// 	aJsonObject* right_j = aJson.getObjectItem(data, FIELD_RIGHT);
 // 	*right = right_j->valueint;
 // }
 

@@ -68,13 +68,14 @@ DAC1		FREE
 #include "aJSON.h"
 #include "MPU6050.h"
 #include "log.h"
+#include "message.h"
 //#include "digitalWriteFast.h"  //could be used to improve performance
 
 /*****************************************
  * Compile Flags
  *****************************************/
 
-// #define ENCODERS_USED
+#define ENCODERS_USED
 #define RAMPING
 #define IMU_INVERTED
 
@@ -83,23 +84,6 @@ DAC1		FREE
  *****************************************/
 
 #define sgn(x) ((x < 0 )? (-1) : (1))
-
-// message constants
-#define HEADER 0xA5
-
-// message type enum
-#define SENSOR_DATA 0
-#define DRIVE_COMMAND 1
-#define MOTOR_COMMAND 2
-#define CONTROL_COMMAND 3
-#define DISCONNECT 4
-#define SENSOR_REQUEST 5
-
-// parameter type enum
-#define INT_T 0
-#define DOUBLE_T 1
-#define STRING_T 2
-#define BOOL_T 3
 
 //// general ///////////////////
 #define COMMAND_TIMEOUT 500    ///TODO: set this to 500ms or so for use with ROS
