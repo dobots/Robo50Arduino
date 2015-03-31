@@ -2,6 +2,12 @@
 #include "robo40control.h"
 #include "Encoder.h"
 
+#define MINIMAL_PROTOCOL
+#include "protocol.h"
+
+
+#define BUMPER_DISABLED
+
 // JSON message is of the format:
 // {"compass":{"heading":119.00000},"accelero":{"x":0.04712,"y":0.00049,"z":0.97757},"gyro":{"x":-0.39674,"y":-1.95318,"z":-1.65563}}
 
@@ -332,15 +338,20 @@ void sendData() {
 	// aJson.addNumberToObject(header, "timestamp", msgCounter++);
 	// aJson.addNumberToObject(header, "type", SENSOR_DATA);
 	// aJson.addItemToObject(json, "header", header);
-	aJson.addNumberToObject(json, "id", SENSOR_DATA);
+	aJson.addNumberToObject(json, FIELD_ID, SENSOR_DATA);
 
 	data = aJson.createObject();
 
 	// BUMPER
 	group = aJson.createObject();
-	aJson.addNumberToObject(group, "left", digitalRead(BUMPER_LEFT));
-	aJson.addNumberToObject(group, "right", digitalRead(BUMPER_RIGHT));
-	aJson.addItemToObject(data, "bumper", group);
+#ifdef BUMPER_DISABLED
+	aJson.addNumberToObject(group, FIELD_LEFT, 1);
+	aJson.addNumberToObject(group, FIELD_RIGHT, 1);
+#else
+	aJson.addNumberToObject(group, FIELD_LEFT, digitalRead(BUMPER_LEFT));
+	aJson.addNumberToObject(group, FIELD_RIGHT, digitalRead(BUMPER_RIGHT));
+#endif
+	aJson.addItemToObject(data, GROUP_BUMPER, group);
 
 	// COMPASS
 	// group = aJson.createObject();
@@ -349,24 +360,32 @@ void sendData() {
 
 	// ACCELERO
 	group = aJson.createObject();
-	aJson.addNumberToObject(group, "x", formatAcceleroValue(agValue[AX]));
-	aJson.addNumberToObject(group, "y", formatAcceleroValue(agValue[AY]));
-	aJson.addNumberToObject(group, "z", formatAcceleroValue(agValue[AZ]));
-	aJson.addItemToObject(data, "accelero", group);
+	aJson.addNumberToObject(group, FIELD_X, formatAcceleroValue(agValue[AX]));
+	aJson.addNumberToObject(group, FIELD_Y, formatAcceleroValue(agValue[AY]));
+	aJson.addNumberToObject(group, FIELD_Z, formatAcceleroValue(agValue[AZ]));
+	aJson.addItemToObject(data, GROUP_ACCELERO, group);
 
 	// GYRO
 	group = aJson.createObject();
-	aJson.addNumberToObject(group, "x", formatGyroValue(agValue[GX]));
-	aJson.addNumberToObject(group, "y", formatGyroValue(agValue[GY]));
-	aJson.addNumberToObject(group, "z", formatGyroValue(agValue[GZ]));
-	aJson.addItemToObject(data, "gyro", group);
+	aJson.addNumberToObject(group, FIELD_X, formatGyroValue(agValue[GX]));
+	aJson.addNumberToObject(group, FIELD_Y, formatGyroValue(agValue[GY]));
+	aJson.addNumberToObject(group, FIELD_Z, formatGyroValue(agValue[GZ]));
+	aJson.addItemToObject(data, GROUP_GYRO, group);
 
 #ifdef ENCODERS_USED
 	// ENCODER
 	group = aJson.createObject();
-	aJson.addNumberToObject(group, "left", (int)leftEncoder.read());
-	aJson.addNumberToObject(group, "right", (int)rightEncoder.read());
-	aJson.addItemToObject(data, "odom", group);
+	#ifdef LEFT_ENCODER_INVERTED
+		aJson.addNumberToObject(group, FIELD_LEFT, -(int)leftEncoder.read());
+	#else
+		aJson.addNumberToObject(group, FIELD_LEFT, (int)leftEncoder.read());
+	#endif
+	#ifdef RIGHT_ENCODER_INVERTED
+		aJson.addNumberToObject(group, FIELD_RIGHT, -(int)rightEncoder.read());
+	#else
+		aJson.addNumberToObject(group, FIELD_RIGHT, (int)rightEncoder.read());
+	#endif
+	aJson.addItemToObject(data, GROUP_ODOM, group);
 #endif
 
 	// WHEELS
@@ -378,8 +397,8 @@ void sendData() {
 	// aJson.addNumberToObject(item, "present", currentSenseLeft);
 	// aJson.addNumberToObject(item, "peak", reportCSLeft);
 	// aJson.addItemToObject(sub, "current", item);
-	aJson.addNumberToObject(sub, "speed", curLeftSpeed);
-	aJson.addItemToObject(group, "left", sub);
+	aJson.addNumberToObject(sub, FIELD_SPEED, curLeftSpeed);
+	aJson.addItemToObject(group, GROUP_LEFT, sub);
 
 	// .. RIGHT
 	sub = aJson.createObject();
@@ -387,10 +406,10 @@ void sendData() {
 	// aJson.addNumberToObject(item, "present", currentSenseRight);
 	// aJson.addNumberToObject(item, "peak", reportCSRight);
 	// aJson.addItemToObject(sub, "current", item);
-	aJson.addNumberToObject(sub, "speed", curRightSpeed);
-	aJson.addItemToObject(group, "right", sub);
+	aJson.addNumberToObject(sub, FIELD_SPEED, curRightSpeed);
+	aJson.addItemToObject(group, GROUP_RIGHT, sub);
 
-	aJson.addItemToObject(data, "wheels", group);
+	aJson.addItemToObject(data, GROUP_WHEELS, group);
 
 	// // MOTORS
 	// group = aJson.createObject();
@@ -433,7 +452,7 @@ void sendData() {
 
 	// aJson.addItemToObject(data, "motors", group);
 
-	aJson.addItemToObject(json, "data", data);
+	aJson.addItemToObject(json, GROUP_DATA, data);
 
 	aJson.print(json, &serial_stream);
 	Serial.println("");
@@ -654,7 +673,7 @@ void drive() {
 	curLeftSpeed = desiredLeftSpeed;
 #endif
 
-#ifndef DEBUG
+#if !defined(DEBUG) && !defined(BUMPER_DISABLED)
 	//finally check bumpers to prevent movement forward
 	// int bumper_ok = digitalRead(BUMPER_LEFT) | digitalRead(BUMPER_RIGHT);
 	// int bumper_ok = 1;

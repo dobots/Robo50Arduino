@@ -74,7 +74,7 @@ DAC1		FREE
  * Compile Flags
  *****************************************/
 
-// #define ENCODERS_USED
+#define ENCODERS_USED
 #define RAMPING
 #define IMU_INVERTED
 
@@ -229,6 +229,9 @@ bool MOTOR_INVERTED[4] = {false, false, false, false};
 // left encoder pins
 #define LEFT_ENCODER_A 26
 #define LEFT_ENCODER_B 27
+
+#define RIGHT_ENCODER_INVERTED
+// #define LEFT_ENCODER_INVERTED // for new version enable
 
 ////////////////////////////////
 ////////////////////////////////
